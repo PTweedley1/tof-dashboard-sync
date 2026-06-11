@@ -65,9 +65,8 @@ def _parse_rows(source_rows):
 def sync():
     print("Syncing Triple Whale...")
 
-    # Auto-discover the first tab name in the TW sheet
-    tabs = list_sheet_tabs(TW_SHEET_ID)
-    source_tab = tabs[0]
+    # Use the active tab the agency updates daily
+    source_tab = "TOF - Meta Results - 1"
     print(f"  Reading from tab: '{source_tab}'")
 
     source_rows = read_tab(TW_SHEET_ID, source_tab)
