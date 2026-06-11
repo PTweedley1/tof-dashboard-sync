@@ -90,7 +90,6 @@ def sync():
 
         new_rows.append([
             yesterday,
-            campaign_name,                # Campaign (from config)
             page_path,                    # URL
             row.metric_values[0].value,   # Sessions
             row.metric_values[1].value,   # Active Users

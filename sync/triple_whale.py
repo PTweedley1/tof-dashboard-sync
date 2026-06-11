@@ -48,8 +48,7 @@ def _parse_rows(source_rows):
 
             records.append([
                 date,
-                camp.campaign_for_tw(campaign),  # Parent campaign (from config)
-                campaign,                         # TW campaign name
+                campaign,                         # TW campaign name (Authority Delivery, etc.)
                 _clean(row[s]),                   # Spend ($)
                 _clean(row[s + 1]),               # CPM ($)
                 _clean(row[s + 2]),               # CPC ($)
