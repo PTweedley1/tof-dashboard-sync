@@ -1,4 +1,4 @@
-from sync import triple_whale, ga4
+from sync import triple_whale, ga4, dashboard
 
 
 def run(name, fn):
@@ -15,6 +15,7 @@ def main():
     # run("Shopify", shopify.sync)      # coming soon
     # run("Recharge", recharge.sync)    # coming soon
     # run("Justuno", justuno.sync)      # coming soon
+    run("Dashboard", dashboard.sync)
     print("\nDone.")
 
 
