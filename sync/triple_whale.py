@@ -1,5 +1,6 @@
 from sync.sheets import list_sheet_tabs, read_tab, get_existing_dates, append_rows
 from sync.config import TW_SHEET_ID, DESTINATION_SHEET_ID, DEST_TABS
+from sync import campaigns as camp
 
 DEST_TAB = DEST_TABS["triple_whale"]
 
@@ -47,13 +48,14 @@ def _parse_rows(source_rows):
 
             records.append([
                 date,
-                campaign,
-                _clean(row[s]),        # Spend ($)
-                _clean(row[s + 1]),    # CPM ($)
-                _clean(row[s + 2]),    # CPC ($)
-                _clean(row[s + 3]),    # CTR
-                _clean(row[s + 4]),    # CPA ($)
-                _clean(row[s + 5]),    # ROAS
+                camp.campaign_for_tw(campaign),  # Parent campaign (from config)
+                campaign,                         # TW campaign name
+                _clean(row[s]),                   # Spend ($)
+                _clean(row[s + 1]),               # CPM ($)
+                _clean(row[s + 2]),               # CPC ($)
+                _clean(row[s + 3]),               # CTR
+                _clean(row[s + 4]),               # CPA ($)
+                _clean(row[s + 5]),               # ROAS
                 row[s + 6] if len(row) > s + 6 else "0",  # New Customers
             ])
         except (IndexError, ValueError):

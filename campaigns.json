@@ -1,0 +1,27 @@
+{
+  "campaigns": [
+    {
+      "id": "tof-april-2026",
+      "name": "TOF - April Launch",
+      "launched": "2026-04-24",
+      "triple_whale_campaigns": ["Authority Delivery", "Problem Absorption", "Proof Outcome"],
+      "urls": [
+        "/pages/problem-absorption-av1",
+        "/pages/problem-absorption-av2",
+        "/pages/authority-delivery-av1",
+        "/pages/authority-delivery-av2",
+        "/pages/proof-outcome-av1",
+        "/pages/proof-outcome-av2"
+      ],
+      "discount_codes": ["LIPOSOMAL20", "LIPOSOMAL30", "GLOW20", "GLOW30", "SAVE20APR", "SIPSAVE26"]
+    },
+    {
+      "id": "listicles-june-2026",
+      "name": "Listicles - June Launch",
+      "launched": "2026-06-15",
+      "triple_whale_campaigns": [],
+      "urls": [],
+      "discount_codes": []
+    }
+  ]
+}

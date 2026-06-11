@@ -1,13 +1,22 @@
-from sync import triple_whale
+from sync import triple_whale, ga4
+
+
+def run(name, fn):
+    try:
+        fn()
+    except Exception as e:
+        print(f"  ERROR in {name}: {e}")
+
 
 def main():
     print("=== TOF Dashboard Sync ===\n")
-    triple_whale.sync()
-    # shopify.sync()    # coming soon
-    # recharge.sync()   # coming soon
-    # ga4.sync()        # coming soon
-    # justuno.sync()    # coming soon
+    run("Triple Whale", triple_whale.sync)
+    run("GA4", ga4.sync)
+    # run("Shopify", shopify.sync)      # coming soon
+    # run("Recharge", recharge.sync)    # coming soon
+    # run("Justuno", justuno.sync)      # coming soon
     print("\nDone.")
+
 
 if __name__ == "__main__":
     main()
