@@ -1,5 +1,6 @@
 import json
 import os
+from collections import defaultdict
 from datetime import date, timedelta
 from google.oauth2 import service_account
 from google.analytics.data_v1beta import BetaAnalyticsDataClient
@@ -7,13 +8,17 @@ from google.analytics.data_v1beta.types import (
     DateRange, Dimension, Metric, RunReportRequest,
     FilterExpression, Filter
 )
-from sync.sheets import get_existing_dates, append_rows
+from sync.sheets import clear_and_write_rows
 from sync.config import DESTINATION_SHEET_ID, DEST_TABS
 from sync import campaigns as camp
 
 PROPERTY_ID = "332137414"
 DEST_TAB = DEST_TABS["ga4"]
 START_DATE = "2026-05-01"
+
+HEADER = ["Date Range", "URL", "Sessions", "Active Users", "New Users",
+          "Engagement Rate", "Avg Eng. Time (s)", "Bounce Rate",
+          "Conversions", "Revenue ($)"]
 
 
 def _get_client():
@@ -61,9 +66,42 @@ def _fetch(start_date: str, end_date: str, urls: list):
     return client.run_report(request)
 
 
-def _format_date(ga_date: str) -> str:
-    # GA4 returns dates as YYYYMMDD → convert to YYYY-MM-DD
-    return f"{ga_date[:4]}-{ga_date[4:6]}-{ga_date[6:]}"
+def _date_label(start: str, end: str) -> str:
+    """Format a date range like 'May 1 – Jun 11'."""
+    from datetime import datetime
+    s = datetime.strptime(start, "%Y-%m-%d")
+    e = datetime.strptime(end, "%Y-%m-%d")
+    return f"{s.strftime('%b %-d')} – {e.strftime('%b %-d')}"
+
+
+def _aggregate(response, urls):
+    """Aggregate daily GA4 rows into one total per URL."""
+    totals = defaultdict(lambda: {
+        "sessions": 0,
+        "active_users": 0,
+        "new_users": 0,
+        "eng_rate_sum": 0.0,
+        "eng_time_sum": 0.0,
+        "bounce_rate_sum": 0.0,
+        "conversions": 0,
+        "revenue": 0.0,
+        "day_count": 0,
+    })
+
+    for row in response.rows:
+        url = row.dimension_values[1].value
+        t = totals[url]
+        t["sessions"] += int(row.metric_values[0].value)
+        t["active_users"] += int(row.metric_values[1].value)
+        t["new_users"] += int(row.metric_values[2].value)
+        t["eng_rate_sum"] += float(row.metric_values[3].value)
+        t["eng_time_sum"] += float(row.metric_values[4].value)
+        t["bounce_rate_sum"] += float(row.metric_values[5].value)
+        t["conversions"] += int(float(row.metric_values[6].value))
+        t["revenue"] += float(row.metric_values[7].value)
+        t["day_count"] += 1
+
+    return totals
 
 
 def sync():
@@ -75,41 +113,39 @@ def sync():
         return
 
     yesterday = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
-    existing_dates = get_existing_dates(DESTINATION_SHEET_ID, DEST_TAB)
+    date_label = _date_label(START_DATE, yesterday)
 
     print(f"  Fetching GA4 data from {START_DATE} to {yesterday}...")
     response = _fetch(START_DATE, yesterday, urls)
 
-    new_rows = []
-    for row in response.rows:
-        row_date = _format_date(row.dimension_values[0].value)
-        if row_date in existing_dates:
-            continue  # already in sheet, skip
+    totals = _aggregate(response, urls)
 
-        page_path = row.dimension_values[1].value
-        eng_rate = float(row.metric_values[3].value)
-        bounce_rate = float(row.metric_values[5].value)
+    # Build one output row per URL, in the same order as campaigns.json
+    output_rows = [HEADER]
+    for url in urls:
+        if url not in totals:
+            # URL had zero traffic — write zeroes so the row still appears
+            output_rows.append([date_label, url, 0, 0, 0, "0.0%", 0, "0.0%", 0, 0.00])
+            continue
 
-        new_rows.append([
-            row_date,
-            page_path,                    # URL
-            row.metric_values[0].value,   # Sessions
-            row.metric_values[1].value,   # Active Users
-            row.metric_values[2].value,   # New Users
-            f"{eng_rate:.1%}",            # Engagement Rate
-            round(float(row.metric_values[4].value), 1),  # Avg Eng. Time (s)
-            f"{bounce_rate:.1%}",         # Bounce Rate
-            row.metric_values[6].value,   # Conversions
-            round(float(row.metric_values[7].value), 2),  # Revenue ($)
+        t = totals[url]
+        n = t["day_count"]
+        avg_eng = t["eng_rate_sum"] / n if n else 0
+        avg_time = t["eng_time_sum"] / n if n else 0
+        avg_bounce = t["bounce_rate_sum"] / n if n else 0
+
+        output_rows.append([
+            date_label,
+            url,
+            t["sessions"],
+            t["active_users"],
+            t["new_users"],
+            f"{avg_eng:.1%}",
+            round(avg_time, 1),
+            f"{avg_bounce:.1%}",
+            t["conversions"],
+            round(t["revenue"], 2),
         ])
 
-    # Sort by date so rows land in chronological order
-    new_rows.sort(key=lambda r: r[0])
-
-    if new_rows:
-        append_rows(DESTINATION_SHEET_ID, DEST_TAB, new_rows)
-        dates_added = sorted({r[0] for r in new_rows})
-        print(f"  Added {len(new_rows)} row(s) across {len(dates_added)} date(s) to '{DEST_TAB}'.")
-        print(f"  Date range covered: {dates_added[0]} → {dates_added[-1]}")
-    else:
-        print(f"  GA4_Pages already has all data from {START_DATE} to {yesterday}.")
+    clear_and_write_rows(DESTINATION_SHEET_ID, DEST_TAB, output_rows)
+    print(f"  Wrote {len(output_rows) - 1} URL row(s) to '{DEST_TAB}' ({date_label}).")

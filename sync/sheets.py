@@ -58,3 +58,20 @@ def append_rows(sheet_id, tab_name, rows):
         insertDataOption="INSERT_ROWS",
         body={"values": rows},
     ).execute()
+
+
+def clear_and_write_rows(sheet_id, tab_name, rows):
+    """Clear the tab and write rows from A1 (used for fully-refreshed tabs)."""
+    if not rows:
+        return
+    service = get_sheets_service()
+    service.spreadsheets().values().clear(
+        spreadsheetId=sheet_id,
+        range=f"{tab_name}!A:Z",
+    ).execute()
+    service.spreadsheets().values().update(
+        spreadsheetId=sheet_id,
+        range=f"{tab_name}!A1",
+        valueInputOption="USER_ENTERED",
+        body={"values": rows},
+    ).execute()
