@@ -44,7 +44,12 @@ def _fetch(id_token, data_point, start_date, end_date):
             "primarySource": PRIMARY_SOURCE,
             "primarySourceType": "experiences",
         },
-        headers={"Firebase-Token": id_token},
+        headers={
+            "Firebase-Token": id_token,
+            "Origin": "https://portal.justuno.com",
+            "Referer": "https://portal.justuno.com/",
+            "Accept": "application/json",
+        },
         timeout=10,
     )
     resp.raise_for_status()
