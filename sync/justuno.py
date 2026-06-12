@@ -52,6 +52,8 @@ def _fetch(id_token, data_point, start_date, end_date):
         },
         timeout=10,
     )
+    if not resp.ok:
+        print(f"  Justuno API error {resp.status_code}: {resp.text[:300]}")
     resp.raise_for_status()
     return resp.json()["current"]
 
