@@ -1,12 +1,9 @@
 """
-Builds two tabs in the dashboard sheet:
+Builds three tabs in the dashboard sheet:
 
   URL_Registry     — directory of every URL with metadata.
-                     Adding a new campaign = add rows here + update campaigns.json.
-
-  Campaign_Summary — horizontal pivot: one column per concept, rows = metrics.
-                     All sources (TW, GA4, Justuno) at the same campaign-concept level.
-                     Updates live via SUMIF/AVERAGEIF formulas.
+  Campaign_Summary — horizontal pivot: one column per concept, all sources.
+  Concept_View     — interactive: pick a concept from a dropdown, see all its data.
 
 Re-run only when campaigns.json changes (new campaign, new URLs, or new concept).
 """
@@ -15,20 +12,24 @@ from sync.sheets import get_sheets_service
 from sync.config import DESTINATION_SHEET_ID
 from sync import campaigns as camp
 
-REGISTRY_TAB = "URL_Registry"
-SUMMARY_TAB = "Campaign_Summary"
+REGISTRY_TAB    = "URL_Registry"
+SUMMARY_TAB     = "Campaign_Summary"
+CONCEPT_VIEW_TAB = "Concept_View"
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────
 
 def _ensure_tab(service, tab_name):
+    """Create the tab if it doesn't exist. Returns the sheet's integer sheetId."""
     meta = service.spreadsheets().get(spreadsheetId=DESTINATION_SHEET_ID).execute()
-    existing = [s["properties"]["title"] for s in meta["sheets"]]
+    existing = {s["properties"]["title"]: s["properties"]["sheetId"] for s in meta["sheets"]}
     if tab_name not in existing:
-        service.spreadsheets().batchUpdate(
+        result = service.spreadsheets().batchUpdate(
             spreadsheetId=DESTINATION_SHEET_ID,
             body={"requests": [{"addSheet": {"properties": {"title": tab_name}}}]}
         ).execute()
+        return result["replies"][0]["addSheet"]["properties"]["sheetId"]
+    return existing[tab_name]
 
 
 def _clear_write(service, tab_name, rows):
@@ -44,7 +45,6 @@ def _clear_write(service, tab_name, rows):
 
 
 def _tw_sum(tw, col):
-    """SUMIF for a TW campaign name (string). Returns empty string if no name."""
     if not tw:
         return ""
     return f'=IFERROR(SUMIF(Meta_TripleWhale!$B:$B,"{tw}",Meta_TripleWhale!${col}:${col}),"")'
@@ -57,7 +57,6 @@ def _tw_avg(tw, col):
 
 
 def _ga4_sum(urls, col):
-    """Sum a GA4 column across all URLs belonging to this concept."""
     if not urls:
         return ""
     parts = [f'SUMIF(GA4_Pages!$B:$B,"{u}",GA4_Pages!${col}:${col})' for u in urls]
@@ -65,7 +64,6 @@ def _ga4_sum(urls, col):
 
 
 def _ga4_avg(urls, col):
-    """Unweighted average of a GA4 column across URLs in this concept."""
     if not urls:
         return ""
     parts = [f'AVERAGEIF(GA4_Pages!$B:$B,"{u}",GA4_Pages!${col}:${col})' for u in urls]
@@ -105,7 +103,6 @@ def _registry_rows(campaigns):
 # ── Campaign_Summary ──────────────────────────────────────────────────────────
 
 def _summary_rows(campaigns):
-    # Flatten concepts across all campaigns in order
     concepts = []
     for c in campaigns:
         for concept in c.get("concepts", []):
@@ -121,12 +118,12 @@ def _summary_rows(campaigns):
     if n == 0:
         return [["No concepts configured in campaigns.json"]]
 
-    last_col = chr(ord("B") + n - 1)   # last concept column letter
+    last_col = chr(ord("B") + n - 1)
 
-    def s(r):   # SUM across concept columns for row r
+    def s(r):
         return f'=IFERROR(SUM(B{r}:{last_col}{r}),"")'
 
-    def a(r):   # AVERAGE across concept columns for row r
+    def a(r):
         return f'=IFERROR(AVERAGE(B{r}:{last_col}{r}),"")'
 
     def pad(lst):
@@ -135,30 +132,21 @@ def _summary_rows(campaigns):
             row.append("")
         return row
 
-    # GA4 column map (matches COL_HEADERS order in ga4.py)
-    # A=Date, B=URL, C=Sessions, D=Active Users, E=New Users,
-    # F=Engagement Rate, G=Avg Eng Time, H=Bounce Rate, I=Conversions, J=Revenue
-
     rows = [
-        pad(["Campaign Summary — live formulas update automatically from GA4_Pages & Meta_TripleWhale."
-             "  Re-run this script only when campaigns.json changes."]),
+        pad(["Campaign Summary — live formulas update automatically from GA4_Pages & Meta_TripleWhale. "
+             "Re-run this script only when campaigns.json changes."]),
         pad([]),
-        # Row 3 — concept headers
         ["Metric"] + [c["name"] for c in concepts] + ["TOTAL / AVG"],
-        # Row 4-6 — metadata
         ["Campaign"]    + [c["campaign"] for c in concepts] + [""],
         ["Launch Date"] + [c["launched"]  for c in concepts] + [""],
         ["Status"]      + ["Active" if c["urls"] else "Upcoming" for c in concepts] + [""],
         pad([]),
-        # Row 8 — META / TW section
         pad(["━━  META / TRIPLE WHALE  ━━"]),
         ["TW Campaign Name"] + [c["tw"] or "TBD" for c in concepts] + [""],
-        # Row 10
-        ["Total Spend ($)"]      + [_tw_sum(c["tw"], "C") for c in concepts] + [s(10)],
+        ["Total Spend ($)"]       + [_tw_sum(c["tw"], "C") for c in concepts] + [s(10)],
         ["Avg ROAS"]              + [_tw_avg(c["tw"], "H") for c in concepts] + [a(11)],
         ["Total New Customers"]   + [_tw_sum(c["tw"], "I") for c in concepts] + [s(12)],
         pad([]),
-        # Row 14 — GA4 section
         pad(["━━  GA4 PAGES  ━━"]),
         ["Sessions"]             + [_ga4_sum(c["urls"], "C") for c in concepts] + [s(15)],
         ["Active Users"]         + [_ga4_sum(c["urls"], "D") for c in concepts] + [s(16)],
@@ -168,39 +156,128 @@ def _summary_rows(campaigns):
         ["Avg Engagement Rate"]  + [_ga4_avg(c["urls"], "F") for c in concepts] + [a(20)],
         ["Avg Bounce Rate"]      + [_ga4_avg(c["urls"], "H") for c in concepts] + [a(21)],
         pad([]),
-        # Row 23 — Justuno section (consolidated — not per concept)
         pad(["━━  JUSTUNO  (consolidated TOF-wide — not yet split by concept)  ━━"]),
-        ["Impressions"]          + ['=IFERROR(Justuno!D6,"")'] + ["—"] * (n - 1) + ['=IFERROR(Justuno!D6,"")'],
-        ["Email Opt-Ins"]        + ['=IFERROR(Justuno!E6,"")'] + ["—"] * (n - 1) + ['=IFERROR(Justuno!E6,"")'],
-        ["SMS Opt-Ins"]          + ['=IFERROR(Justuno!F6,"")'] + ["—"] * (n - 1) + ['=IFERROR(Justuno!F6,"")'],
-        ["Opt-In Rate"]          + ['=IFERROR(Justuno!G6,"")'] + ["—"] * (n - 1) + ['=IFERROR(Justuno!G6,"")'],
+        ["Impressions"]           + ['=IFERROR(Justuno!D6,"")'] + ["—"] * (n - 1) + ['=IFERROR(Justuno!D6,"")'],
+        ["Email Opt-Ins"]         + ['=IFERROR(Justuno!E6,"")'] + ["—"] * (n - 1) + ['=IFERROR(Justuno!E6,"")'],
+        ["SMS Opt-Ins"]           + ['=IFERROR(Justuno!F6,"")'] + ["—"] * (n - 1) + ['=IFERROR(Justuno!F6,"")'],
+        ["Opt-In Rate"]           + ['=IFERROR(Justuno!G6,"")'] + ["—"] * (n - 1) + ['=IFERROR(Justuno!G6,"")'],
         ["Influenced Revenue ($)"]+ ['=IFERROR(Justuno!H6,"")'] + ["—"] * (n - 1) + ['=IFERROR(Justuno!H6,"")'],
     ]
 
     return rows
 
 
+# ── Concept_View ──────────────────────────────────────────────────────────────
+
+def _concept_view_rows(first_concept_name):
+    """
+    Build rows for the Concept_View tab.
+    B1 = dropdown selector (set via data validation separately).
+    All value cells use INDEX/MATCH to pull the matching column from Campaign_Summary.
+    """
+
+    def val(cs_row):
+        # Look up B1's value in Campaign_Summary header row 3, return that column's value
+        return (
+            f'=IFERROR(INDEX(Campaign_Summary!$B${cs_row}:$Z${cs_row},'
+            f'MATCH($B$1,Campaign_Summary!$B$3:$Z$3,0)),"—")'
+        )
+
+    rows = [
+        # Row 1 — selector
+        ["Selected Concept →", first_concept_name],
+        [],
+        # Row 3 — concept metadata
+        ["Campaign",    f'=IFERROR(INDEX(Campaign_Summary!$B$4:$Z$4,MATCH($B$1,Campaign_Summary!$B$3:$Z$3,0)),"—")'],
+        ["Launch Date", f'=IFERROR(INDEX(Campaign_Summary!$B$5:$Z$5,MATCH($B$1,Campaign_Summary!$B$3:$Z$3,0)),"—")'],
+        ["Status",      f'=IFERROR(INDEX(Campaign_Summary!$B$6:$Z$6,MATCH($B$1,Campaign_Summary!$B$3:$Z$3,0)),"—")'],
+        ["TW Campaign", f'=IFERROR(INDEX(Campaign_Summary!$B$9:$Z$9,MATCH($B$1,Campaign_Summary!$B$3:$Z$3,0)),"—")'],
+        [],
+        # Row 8 — TW metrics
+        ["━━  META / TRIPLE WHALE  ━━", ""],
+        ["Total Spend ($)",    val(10)],
+        ["Avg ROAS",           val(11)],
+        ["Total New Customers",val(12)],
+        [],
+        # Row 13 — GA4 metrics
+        ["━━  GA4 PAGES  ━━", ""],
+        ["Sessions",            val(15)],
+        ["Active Users",        val(16)],
+        ["New Users",           val(17)],
+        ["Conversions",         val(18)],
+        ["Revenue ($)",         val(19)],
+        ["Avg Engagement Rate", val(20)],
+        ["Avg Bounce Rate",     val(21)],
+        [],
+        # Row 22 — Justuno (consolidated, not per-concept)
+        ["━━  JUSTUNO  (TOF-wide total — not split by concept)  ━━", ""],
+        ["Impressions",            '=IFERROR(Justuno!D6,"—")'],
+        ["Email Opt-Ins",          '=IFERROR(Justuno!E6,"—")'],
+        ["SMS Opt-Ins",            '=IFERROR(Justuno!F6,"—")'],
+        ["Opt-In Rate",            '=IFERROR(Justuno!G6,"—")'],
+        ["Influenced Revenue ($)", '=IFERROR(Justuno!H6,"—")'],
+    ]
+    return rows
+
+
+def _set_dropdown(service, sheet_id, concept_names):
+    """Set B1 in Concept_View to a dropdown restricted to concept names."""
+    service.spreadsheets().batchUpdate(
+        spreadsheetId=DESTINATION_SHEET_ID,
+        body={"requests": [{
+            "setDataValidation": {
+                "range": {
+                    "sheetId": sheet_id,
+                    "startRowIndex": 0,
+                    "endRowIndex": 1,
+                    "startColumnIndex": 1,  # column B
+                    "endColumnIndex": 2,
+                },
+                "rule": {
+                    "condition": {
+                        "type": "ONE_OF_LIST",
+                        "values": [{"userEnteredValue": n} for n in concept_names],
+                    },
+                    "showCustomUi": True,
+                    "strict": True,
+                },
+            }
+        }]}
+    ).execute()
+
+
 # ── main ──────────────────────────────────────────────────────────────────────
 
 def sync():
-    print("Building URL_Registry and Campaign_Summary...")
-    service = get_sheets_service()
+    print("Building URL_Registry, Campaign_Summary, and Concept_View...")
+    service  = get_sheets_service()
     campaigns = camp.load()
+
+    # Flatten concept list for use across tabs
+    concepts = [
+        concept
+        for c in campaigns
+        for concept in c.get("concepts", [])
+    ]
+    concept_names = [c["name"] for c in concepts]
 
     # URL_Registry
     _ensure_tab(service, REGISTRY_TAB)
     _clear_write(service, REGISTRY_TAB, _registry_rows(campaigns))
-    url_count = sum(
-        max(len(c.get("urls", [])), 1)
-        for camp_obj in campaigns
-        for c in camp_obj.get("concepts", [])
-    )
+    url_count = sum(max(len(c.get("urls", [])), 1) for c in concepts)
     print(f"  URL_Registry: {url_count} row(s)")
 
     # Campaign_Summary
     _ensure_tab(service, SUMMARY_TAB)
     _clear_write(service, SUMMARY_TAB, _summary_rows(campaigns))
-    concept_count = sum(len(c.get("concepts", [])) for c in campaigns)
-    print(f"  Campaign_Summary: {concept_count} concept column(s)")
+    print(f"  Campaign_Summary: {len(concepts)} concept column(s)")
+
+    # Concept_View
+    first_name = concept_names[0] if concept_names else ""
+    cv_sheet_id = _ensure_tab(service, CONCEPT_VIEW_TAB)
+    _clear_write(service, CONCEPT_VIEW_TAB, _concept_view_rows(first_name))
+    if concept_names:
+        _set_dropdown(service, cv_sheet_id, concept_names)
+    print(f"  Concept_View: dropdown set to {concept_names}")
 
     print("  Note: re-run only when campaigns.json changes.")
