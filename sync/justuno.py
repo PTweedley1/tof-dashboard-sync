@@ -1,3 +1,5 @@
+import base64
+import json
 import os
 import requests
 from datetime import date, timedelta, datetime
@@ -29,7 +31,18 @@ def _get_id_token():
         timeout=10,
     )
     resp.raise_for_status()
-    return resp.json()["id_token"]
+    id_token = resp.json()["id_token"]
+    # Decode JWT payload (no library needed) to verify claims
+    try:
+        payload = id_token.split('.')[1]
+        payload += '=' * (4 - len(payload) % 4)
+        claims = json.loads(base64.urlsafe_b64decode(payload))
+        print(f"  Token claims: aud={claims.get('aud')}, uid={claims.get('user_id')}, "
+              f"iat={claims.get('iat')}, exp={claims.get('exp')}, "
+              f"provider={claims.get('firebase', {}).get('sign_in_provider')}")
+    except Exception as e:
+        print(f"  Could not decode token: {e}")
+    return id_token
 
 
 def _fetch(id_token, data_point, start_date, end_date):
