@@ -77,53 +77,61 @@ def clear_and_write_rows(sheet_id, tab_name, rows):
     ).execute()
 
 
+def _get_sheet_id(service, spreadsheet_id, tab_name):
+    """Return the numeric sheetId for a tab by name."""
+    meta = service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
+    for s in meta["sheets"]:
+        if s["properties"]["title"] == tab_name:
+            return s["properties"]["sheetId"]
+    return None
+
+
+def _reset_tab_formatting(service, spreadsheet_id, sheet_id):
+    """Remove all merges and reset all cell formatting to defaults."""
+    full_range = {
+        "sheetId": sheet_id,
+        "startRowIndex": 0, "endRowIndex": 1000,
+        "startColumnIndex": 0, "endColumnIndex": 26,
+    }
+    service.spreadsheets().batchUpdate(
+        spreadsheetId=spreadsheet_id,
+        body={"requests": [
+            {"unmergeCells": {"range": full_range}},
+            {"updateCells": {"range": full_range, "fields": "userEnteredFormat"}},
+        ]}
+    ).execute()
+
+
 def update_data_section(sheet_id, tab_name, data_rows, date_label=None):
     """
-    Update only the data rows in a tab that has a header/title section above.
-
-    Scans column A to find the row with 'Date' (the column header row).
-    Clears everything below it and writes fresh data rows.
-    Optionally updates a 'Last Updated' cell in the header section.
+    Unmerge the tab, clear all values, then write a header row + data rows.
+    This avoids leftover merged cells silently eating written values.
     """
-    service = get_sheets_service()
-    col_a = read_tab(sheet_id, tab_name, "A:A")
-
-    header_row_idx = None   # 0-based index of the 'Date' column header row
-    last_updated_row_idx = None  # 0-based index of the 'Last Updated' row
-
-    for i, row in enumerate(col_a):
-        val = row[0].strip().lower() if row else ""
-        if val == "date" or val == "date range":
-            header_row_idx = i
-        if "last updated" in val:
-            last_updated_row_idx = i
-
-    if header_row_idx is None:
-        # No existing structure — fall back to full overwrite starting at A1
-        clear_and_write_rows(sheet_id, tab_name, data_rows)
+    if not data_rows:
         return
 
-    data_start_row = header_row_idx + 2  # 1-indexed row where data begins
+    service = get_sheets_service()
 
-    # Update "Last Updated" adjacent cell (column B of that row)
-    if date_label and last_updated_row_idx is not None:
-        lu_cell = f"{tab_name}!B{last_updated_row_idx + 1}"
-        service.spreadsheets().values().update(
-            spreadsheetId=sheet_id,
-            range=lu_cell,
-            valueInputOption="USER_ENTERED",
-            body={"values": [[date_label]]},
-        ).execute()
+    # Unmerge and clear all formatting so no leftover styles bleed through
+    numeric_sheet_id = _get_sheet_id(service, sheet_id, tab_name)
+    if numeric_sheet_id is not None:
+        _reset_tab_formatting(service, sheet_id, numeric_sheet_id)
 
-    # Clear old data rows and write fresh ones
+    # Clear all values
     service.spreadsheets().values().clear(
         spreadsheetId=sheet_id,
-        range=f"{tab_name}!A{data_start_row}:J500",
+        range=f"{tab_name}!A:Z",
     ).execute()
-    if data_rows:
-        service.spreadsheets().values().update(
-            spreadsheetId=sheet_id,
-            range=f"{tab_name}!A{data_start_row}",
-            valueInputOption="USER_ENTERED",
-            body={"values": data_rows},
-        ).execute()
+
+    # Write header + data rows from A1
+    HEADER = ["Date Range", "URL", "Sessions", "Active Users", "New Users",
+              "Engagement Rate", "Avg Eng. Time (s)", "Bounce Rate",
+              "Conversions", "Revenue ($)"]
+    all_rows = [HEADER] + data_rows
+
+    service.spreadsheets().values().update(
+        spreadsheetId=sheet_id,
+        range=f"{tab_name}!A1",
+        valueInputOption="USER_ENTERED",
+        body={"values": all_rows},
+    ).execute()
