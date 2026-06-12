@@ -12,15 +12,33 @@ from sync.sheets import get_sheets_service
 from sync.config import DESTINATION_SHEET_ID
 from sync import campaigns as camp
 
-REGISTRY_TAB    = "URL_Registry"
-SUMMARY_TAB     = "Campaign_Summary"
+REGISTRY_TAB     = "URL_Registry"
+SUMMARY_TAB      = "Campaign_Summary"
 CONCEPT_VIEW_TAB = "Concept_View"
+
+# ── color palette ─────────────────────────────────────────────────────────────
+
+def _rgb(hex_str):
+    """Convert '#RRGGBB' to Sheets API color dict."""
+    h = hex_str.lstrip("#")
+    return {
+        "red":   int(h[0:2], 16) / 255,
+        "green": int(h[2:4], 16) / 255,
+        "blue":  int(h[4:6], 16) / 255,
+    }
+
+C_DARK      = _rgb("2D3047")   # section header bg (dark navy)
+C_SELECTOR  = _rgb("4472C4")   # B1 selector bg (blue)
+C_META      = _rgb("EEF2F8")   # metadata rows bg (light blue-gray)
+C_ALT       = _rgb("F7F8FA")   # alternating metric row bg
+C_WHITE     = _rgb("FFFFFF")
+C_TEXT_DARK = _rgb("1A1A2E")   # body text
+C_BORDER    = _rgb("CDD5E0")   # subtle border
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────
 
 def _ensure_tab(service, tab_name):
-    """Create the tab if it doesn't exist. Returns the sheet's integer sheetId."""
     meta = service.spreadsheets().get(spreadsheetId=DESTINATION_SHEET_ID).execute()
     existing = {s["properties"]["title"]: s["properties"]["sheetId"] for s in meta["sheets"]}
     if tab_name not in existing:
@@ -133,8 +151,7 @@ def _summary_rows(campaigns):
         return row
 
     rows = [
-        pad(["Campaign Summary — live formulas update automatically from GA4_Pages & Meta_TripleWhale. "
-             "Re-run this script only when campaigns.json changes."]),
+        pad(["Campaign Summary — live formulas. Re-run script only when campaigns.json changes."]),
         pad([]),
         ["Metric"] + [c["name"] for c in concepts] + ["TOTAL / AVG"],
         ["Campaign"]    + [c["campaign"] for c in concepts] + [""],
@@ -163,75 +180,201 @@ def _summary_rows(campaigns):
         ["Opt-In Rate"]           + ['=IFERROR(Justuno!G6,"")'] + ["—"] * (n - 1) + ['=IFERROR(Justuno!G6,"")'],
         ["Influenced Revenue ($)"]+ ['=IFERROR(Justuno!H6,"")'] + ["—"] * (n - 1) + ['=IFERROR(Justuno!H6,"")'],
     ]
-
     return rows
 
 
-# ── Concept_View ──────────────────────────────────────────────────────────────
+# ── Concept_View rows ─────────────────────────────────────────────────────────
 
 def _concept_view_rows(first_concept_name):
     """
-    Build rows for the Concept_View tab.
-    B1 = dropdown selector (set via data validation separately).
-    All value cells use INDEX/MATCH to pull the matching column from Campaign_Summary.
+    Layout (1-indexed sheet rows → 0-indexed API rows):
+      Row 1  (idx 0):  selector
+      Row 2  (idx 1):  blank
+      Row 3  (idx 2):  Campaign
+      Row 4  (idx 3):  Launch Date
+      Row 5  (idx 4):  Status
+      Row 6  (idx 5):  TW Campaign
+      Row 7  (idx 6):  blank
+      Row 8  (idx 7):  ── META / TW ──
+      Row 9  (idx 8):  Total Spend
+      Row 10 (idx 9):  Avg ROAS
+      Row 11 (idx 10): Total New Customers
+      Row 12 (idx 11): blank
+      Row 13 (idx 12): ── GA4 ──
+      Row 14 (idx 13): Sessions
+      Row 15 (idx 14): Active Users
+      Row 16 (idx 15): New Users
+      Row 17 (idx 16): Conversions
+      Row 18 (idx 17): Revenue
+      Row 19 (idx 18): Avg Engagement Rate
+      Row 20 (idx 19): Avg Bounce Rate
+      Row 21 (idx 20): blank
+      Row 22 (idx 21): ── JUSTUNO ──
+      Row 23 (idx 22): Impressions
+      Row 24 (idx 23): Email Opt-Ins
+      Row 25 (idx 24): SMS Opt-Ins
+      Row 26 (idx 25): Opt-In Rate
+      Row 27 (idx 26): Influenced Revenue
     """
 
     def val(cs_row):
-        # Look up B1's value in Campaign_Summary header row 3, return that column's value
         return (
-            f'=IFERROR(INDEX(Campaign_Summary!$B${cs_row}:$Z${cs_row},'
-            f'MATCH($B$1,Campaign_Summary!$B$3:$Z$3,0)),"—")'
+            f"=IFERROR(INDEX(Campaign_Summary!$B${cs_row}:$Z${cs_row},"
+            f"MATCH($B$1,Campaign_Summary!$B$3:$Z$3,0)),\"—\")"
         )
 
-    rows = [
-        # Row 1 — selector
-        ["Selected Concept →", first_concept_name],
-        [],
-        # Row 3 — concept metadata
-        ["Campaign",    f'=IFERROR(INDEX(Campaign_Summary!$B$4:$Z$4,MATCH($B$1,Campaign_Summary!$B$3:$Z$3,0)),"—")'],
-        ["Launch Date", f'=IFERROR(INDEX(Campaign_Summary!$B$5:$Z$5,MATCH($B$1,Campaign_Summary!$B$3:$Z$3,0)),"—")'],
-        ["Status",      f'=IFERROR(INDEX(Campaign_Summary!$B$6:$Z$6,MATCH($B$1,Campaign_Summary!$B$3:$Z$3,0)),"—")'],
-        ["TW Campaign", f'=IFERROR(INDEX(Campaign_Summary!$B$9:$Z$9,MATCH($B$1,Campaign_Summary!$B$3:$Z$3,0)),"—")'],
-        [],
-        # Row 8 — TW metrics
-        ["━━  META / TRIPLE WHALE  ━━", ""],
-        ["Total Spend ($)",    val(10)],
-        ["Avg ROAS",           val(11)],
-        ["Total New Customers",val(12)],
-        [],
-        # Row 13 — GA4 metrics
-        ["━━  GA4 PAGES  ━━", ""],
-        ["Sessions",            val(15)],
-        ["Active Users",        val(16)],
-        ["New Users",           val(17)],
-        ["Conversions",         val(18)],
-        ["Revenue ($)",         val(19)],
-        ["Avg Engagement Rate", val(20)],
-        ["Avg Bounce Rate",     val(21)],
-        [],
-        # Row 22 — Justuno (consolidated, not per-concept)
-        ["━━  JUSTUNO  (TOF-wide total — not split by concept)  ━━", ""],
-        ["Impressions",            '=IFERROR(Justuno!D6,"—")'],
-        ["Email Opt-Ins",          '=IFERROR(Justuno!E6,"—")'],
-        ["SMS Opt-Ins",            '=IFERROR(Justuno!F6,"—")'],
-        ["Opt-In Rate",            '=IFERROR(Justuno!G6,"—")'],
-        ["Influenced Revenue ($)", '=IFERROR(Justuno!H6,"—")'],
-    ]
-    return rows
+    def date_val(cs_row):
+        # Wrap in TEXT() so the date serial renders as a human-readable string
+        return (
+            f'=IFERROR(TEXT(INDEX(Campaign_Summary!$B${cs_row}:$Z${cs_row},'
+            f'MATCH($B$1,Campaign_Summary!$B$3:$Z$3,0)),"MMM D, YYYY"),"—")'
+        )
 
+    return [
+        ["Selected Concept  →", first_concept_name],           # idx 0
+        [],                                                     # idx 1
+        ["Campaign",    val(4)],                                # idx 2
+        ["Launch Date", date_val(5)],                          # idx 3  ← TEXT() fixes serial
+        ["Status",      val(6)],                                # idx 4
+        ["TW Campaign", val(9)],                                # idx 5
+        [],                                                     # idx 6
+        ["META / TRIPLE WHALE", ""],                            # idx 7  section header
+        ["Total Spend ($)",     val(10)],                       # idx 8
+        ["Avg ROAS",            val(11)],                       # idx 9
+        ["Total New Customers", val(12)],                       # idx 10
+        [],                                                     # idx 11
+        ["GA4 PAGES", ""],                                      # idx 12 section header
+        ["Sessions",            val(15)],                       # idx 13
+        ["Active Users",        val(16)],                       # idx 14
+        ["New Users",           val(17)],                       # idx 15
+        ["Conversions",         val(18)],                       # idx 16
+        ["Revenue ($)",         val(19)],                       # idx 17
+        ["Avg Engagement Rate", val(20)],                       # idx 18
+        ["Avg Bounce Rate",     val(21)],                       # idx 19
+        [],                                                     # idx 20
+        ["JUSTUNO  (TOF-wide total)", ""],                      # idx 21 section header
+        ["Impressions",            '=IFERROR(Justuno!D6,"—")'], # idx 22
+        ["Email Opt-Ins",          '=IFERROR(Justuno!E6,"—")'], # idx 23
+        ["SMS Opt-Ins",            '=IFERROR(Justuno!F6,"—")'], # idx 24
+        ["Opt-In Rate",            '=IFERROR(Justuno!G6,"—")'], # idx 25
+        ["Influenced Revenue ($)", '=IFERROR(Justuno!H6,"—")'], # idx 26
+    ]
+
+
+# ── Concept_View formatting ───────────────────────────────────────────────────
+
+def _format_concept_view(service, sheet_id):
+    """Apply visual formatting to the Concept_View tab in a single batchUpdate call."""
+
+    def rng(r0, r1, c0=0, c1=2):
+        return {"sheetId": sheet_id,
+                "startRowIndex": r0, "endRowIndex": r1,
+                "startColumnIndex": c0, "endColumnIndex": c1}
+
+    def fill(r0, r1, c0, c1, bg, fg=None, bold=False, font_size=None, h_align=None):
+        fmt = {"backgroundColor": bg}
+        tf = {"bold": bold, "foregroundColor": fg or C_TEXT_DARK}
+        if font_size:
+            tf["fontSize"] = font_size
+        fmt["textFormat"] = tf
+        if h_align:
+            fmt["horizontalAlignment"] = h_align
+        fields = "userEnteredFormat(backgroundColor,textFormat"
+        if h_align:
+            fields += ",horizontalAlignment"
+        fields += ")"
+        return {"repeatCell": {"range": rng(r0, r1, c0, c1),
+                               "cell": {"userEnteredFormat": fmt},
+                               "fields": fields}}
+
+    def num_fmt(row_idx, pattern):
+        return {"repeatCell": {
+            "range": rng(row_idx, row_idx + 1, 1, 2),
+            "cell": {"userEnteredFormat": {"numberFormat": {"type": "NUMBER", "pattern": pattern}}},
+            "fields": "userEnteredFormat.numberFormat",
+        }}
+
+    requests = []
+
+    # ── column widths ─────────────────────────────────────────────────────────
+    requests.append({"updateDimensionProperties": {
+        "range": {"sheetId": sheet_id, "dimension": "COLUMNS", "startIndex": 0, "endIndex": 1},
+        "properties": {"pixelSize": 260}, "fields": "pixelSize",
+    }})
+    requests.append({"updateDimensionProperties": {
+        "range": {"sheetId": sheet_id, "dimension": "COLUMNS", "startIndex": 1, "endIndex": 2},
+        "properties": {"pixelSize": 200}, "fields": "pixelSize",
+    }})
+
+    # ── row 1 height ──────────────────────────────────────────────────────────
+    requests.append({"updateDimensionProperties": {
+        "range": {"sheetId": sheet_id, "dimension": "ROWS", "startIndex": 0, "endIndex": 1},
+        "properties": {"pixelSize": 44}, "fields": "pixelSize",
+    }})
+
+    # ── freeze row 1 ─────────────────────────────────────────────────────────
+    requests.append({"updateSheetProperties": {
+        "properties": {"sheetId": sheet_id, "gridProperties": {"frozenRowCount": 1}},
+        "fields": "gridProperties.frozenRowCount",
+    }})
+
+    # ── row 1: selector ───────────────────────────────────────────────────────
+    # A1: dark label
+    requests.append(fill(0, 1, 0, 1, C_DARK, C_WHITE, bold=True, font_size=12))
+    # B1: blue selector cell
+    requests.append(fill(0, 1, 1, 2, C_SELECTOR, C_WHITE, bold=True, font_size=12))
+
+    # ── metadata rows 3-6 (idx 2-5) ──────────────────────────────────────────
+    requests.append(fill(2, 6, 0, 2, C_META))
+    requests.append(fill(2, 6, 0, 1, C_META, bold=True))  # bold labels
+
+    # ── section headers: idx 7, 12, 21 ───────────────────────────────────────
+    for i in [7, 12, 21]:
+        requests.append(fill(i, i + 1, 0, 2, C_DARK, C_WHITE, bold=True))
+
+    # ── metric rows: alternating white / light gray ───────────────────────────
+    metric_rows = [8, 9, 10, 13, 14, 15, 16, 17, 18, 19, 22, 23, 24, 25, 26]
+    for j, idx in enumerate(metric_rows):
+        bg = C_ALT if j % 2 == 0 else C_WHITE
+        requests.append(fill(idx, idx + 1, 0, 1, bg, bold=True))            # label bold
+        requests.append(fill(idx, idx + 1, 1, 2, bg, h_align="RIGHT"))      # value right-aligned
+
+    # ── number formats ────────────────────────────────────────────────────────
+    number_fmts = [
+        (8,  '$#,##0.00'),   # Total Spend
+        (9,  '0.00"x"'),     # Avg ROAS
+        (10, '#,##0'),       # Total New Customers
+        (13, '#,##0'),       # Sessions
+        (14, '#,##0'),       # Active Users
+        (15, '#,##0'),       # New Users
+        (16, '#,##0'),       # Conversions
+        (17, '$#,##0.00'),   # Revenue
+        (18, '0.0%'),        # Avg Engagement Rate
+        (19, '0.0%'),        # Avg Bounce Rate
+        (22, '#,##0'),       # Impressions
+        (23, '#,##0'),       # Email Opt-Ins
+        (24, '#,##0'),       # SMS Opt-Ins
+    ]
+    for row_idx, pattern in number_fmts:
+        requests.append(num_fmt(row_idx, pattern))
+
+    service.spreadsheets().batchUpdate(
+        spreadsheetId=DESTINATION_SHEET_ID,
+        body={"requests": requests},
+    ).execute()
+
+
+# ── dropdown ──────────────────────────────────────────────────────────────────
 
 def _set_dropdown(service, sheet_id, concept_names):
-    """Set B1 in Concept_View to a dropdown restricted to concept names."""
     service.spreadsheets().batchUpdate(
         spreadsheetId=DESTINATION_SHEET_ID,
         body={"requests": [{
             "setDataValidation": {
                 "range": {
                     "sheetId": sheet_id,
-                    "startRowIndex": 0,
-                    "endRowIndex": 1,
-                    "startColumnIndex": 1,  # column B
-                    "endColumnIndex": 2,
+                    "startRowIndex": 0, "endRowIndex": 1,
+                    "startColumnIndex": 1, "endColumnIndex": 2,
                 },
                 "rule": {
                     "condition": {
@@ -250,10 +393,9 @@ def _set_dropdown(service, sheet_id, concept_names):
 
 def sync():
     print("Building URL_Registry, Campaign_Summary, and Concept_View...")
-    service  = get_sheets_service()
+    service   = get_sheets_service()
     campaigns = camp.load()
 
-    # Flatten concept list for use across tabs
     concepts = [
         concept
         for c in campaigns
@@ -278,6 +420,7 @@ def sync():
     _clear_write(service, CONCEPT_VIEW_TAB, _concept_view_rows(first_name))
     if concept_names:
         _set_dropdown(service, cv_sheet_id, concept_names)
-    print(f"  Concept_View: dropdown set to {concept_names}")
+    _format_concept_view(service, cv_sheet_id)
+    print(f"  Concept_View: {len(concept_names)} concepts in dropdown, formatting applied")
 
     print("  Note: re-run only when campaigns.json changes.")
