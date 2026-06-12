@@ -156,11 +156,7 @@ def _registry_rows(campaigns):
 #   8  TW header     14 GA4 header         20 Avg Eng Rate     26 SMS Opt-Ins
 #                                                              27 Opt-In Rate
 #                                                              28 Influenced Rev
-#                                                              29 blank
-#                                                              30 Shopify header
-#                                                              31 Orders
-#                                                              32 Revenue
-#                                                              33 AOV
+# Shopify rows (31-33) reserved — wired in once API token is confirmed.
 
 def _summary_rows(campaigns):
     concepts = []
@@ -225,13 +221,6 @@ def _summary_rows(campaigns):
         ["SMS Opt-Ins"]            + ['=IFERROR(Justuno!F6,"")'] + ["—"]*(n-1) + ['=IFERROR(Justuno!F6,"")'],  # row 26
         ["Opt-In Rate"]            + ['=IFERROR(Justuno!G6,"")'] + ["—"]*(n-1) + ['=IFERROR(Justuno!G6,"")'],  # row 27
         ["Influenced Revenue ($)"] + ['=IFERROR(Justuno!H6,"")'] + ["—"]*(n-1) + ['=IFERROR(Justuno!H6,"")'],  # row 28
-        pad([]),                                                                 # row 29
-        pad(["━━  SHOPIFY  (campaign-level via discount codes)  ━━"]),          # row 30
-        # Concepts share campaign-level codes — same value across concepts in same campaign.
-        # TOTAL uses deduplicated codes to avoid double-counting.
-        ["Orders (campaign)"]      + [_shopify_orders(c["discount_codes"]) for c in concepts] + [_shopify_total(all_codes, _shopify_orders)],  # row 31
-        ["Revenue ($) (campaign)"] + [_shopify_revenue(c["discount_codes"]) for c in concepts] + [_shopify_total(all_codes, _shopify_revenue)],  # row 32
-        ["AOV"]                    + [_shopify_aov(c["discount_codes"]) for c in concepts] + [_shopify_total(all_codes, _shopify_aov)],          # row 33
     ]
 
 
@@ -278,11 +267,6 @@ def _concept_view_rows(first_concept_name):
         ["SMS Opt-Ins",            '=IFERROR(Justuno!F6,"—")'],  # idx 24
         ["Opt-In Rate",            '=IFERROR(Justuno!G6,"—")'],  # idx 25
         ["Influenced Revenue ($)", '=IFERROR(Justuno!H6,"—")'],  # idx 26
-        [],                                             # idx 27
-        ["SHOPIFY  (campaign total via discount codes)", ""],  # idx 28 — section header
-        ["Orders",   val(31)],                          # idx 29
-        ["Revenue ($)", val(32)],                       # idx 30
-        ["AOV",      val(33)],                          # idx 31
     ]
 
 
@@ -329,12 +313,12 @@ def _format_concept_view(service, sheet_id):
         # Metadata rows 3-6 (idx 2-5)
         fill(2, 6, 0, 2, C_META),
         fill(2, 6, 0, 1, C_META, bold=True),
-        # Section headers: idx 7, 12, 21, 28
-        *[fill(i, i+1, 0, 2, C_DARK, C_WHITE, bold=True) for i in [7, 12, 21, 28]],
+        # Section headers: idx 7, 12, 21
+        *[fill(i, i+1, 0, 2, C_DARK, C_WHITE, bold=True) for i in [7, 12, 21]],
     ]
 
     # Metric rows: alternating white/gray
-    metric_rows = [8, 9, 10, 13, 14, 15, 16, 17, 18, 19, 22, 23, 24, 25, 26, 29, 30, 31]
+    metric_rows = [8, 9, 10, 13, 14, 15, 16, 17, 18, 19, 22, 23, 24, 25, 26]
     for j, idx in enumerate(metric_rows):
         bg = C_ALT if j % 2 == 0 else C_WHITE
         requests.append(fill(idx, idx+1, 0, 1, bg, bold=True))
@@ -355,9 +339,6 @@ def _format_concept_view(service, sheet_id):
         (22, '#,##0'),       # Impressions
         (23, '#,##0'),       # Email Opt-Ins
         (24, '#,##0'),       # SMS Opt-Ins
-        (29, '#,##0'),       # Shopify Orders
-        (30, '$#,##0.00'),   # Shopify Revenue
-        (31, '$#,##0.00'),   # Shopify AOV
     ]:
         requests.append(num_fmt(row_idx, pattern))
 
