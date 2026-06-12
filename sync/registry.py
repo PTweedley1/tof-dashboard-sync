@@ -421,7 +421,8 @@ def sync():
 
     _ensure_tab(service, REGISTRY_TAB)
     _clear_write(service, REGISTRY_TAB, _registry_rows(campaigns))
-    print(f"  URL_Registry: {sum(max(len(c.get('urls',[]),1) for c in concepts)} row(s)")
+    url_row_count = sum(max(len(c.get("urls", [])), 1) for c in concepts)
+    print(f"  URL_Registry: {url_row_count} row(s)")
 
     _ensure_tab(service, SUMMARY_TAB)
     _clear_write(service, SUMMARY_TAB, _summary_rows(campaigns))
