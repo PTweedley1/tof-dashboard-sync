@@ -8,16 +8,12 @@ from google.analytics.data_v1beta.types import (
     DateRange, Dimension, Metric, RunReportRequest,
     FilterExpression, Filter
 )
-from sync.sheets import clear_and_write_rows
+from sync.sheets import update_data_section
 from sync.config import DESTINATION_SHEET_ID, DEST_TABS
 from sync import campaigns as camp
 
 PROPERTY_ID = "332137414"
 DEST_TAB = DEST_TABS["ga4"]
-
-HEADER = ["Date Range", "URL", "Sessions", "Active Users", "New Users",
-          "Engagement Rate", "Avg Eng. Time (s)", "Bounce Rate",
-          "Conversions", "Revenue ($)"]
 
 
 def _get_client():
@@ -125,8 +121,8 @@ def sync():
         response = _fetch(start_date, yesterday, urls)
         _accumulate(totals, response, url_filter=set(urls))
 
-    # Build output rows in campaigns.json URL order
-    output_rows = [HEADER]
+    # Build one output row per URL (no header — the tab already has one)
+    output_rows = []
     for c in campaigns:
         overrides = c.get("url_start_dates", {})
         launch = c.get("launched", "2026-01-01")
@@ -157,5 +153,9 @@ def sync():
                 round(t["revenue"], 2),
             ])
 
-    clear_and_write_rows(DESTINATION_SHEET_ID, DEST_TAB, output_rows)
-    print(f"  Wrote {len(output_rows) - 1} URL row(s) to '{DEST_TAB}'.")
+    # Use the date range of the first URL as the "Last Updated" label
+    first_start = next(iter(url_start.values())) if url_start else "2026-05-01"
+    last_updated = _date_label(first_start, yesterday)
+
+    update_data_section(DESTINATION_SHEET_ID, DEST_TAB, output_rows, date_label=last_updated)
+    print(f"  Wrote {len(output_rows)} URL row(s) to '{DEST_TAB}' (kept tab header/formatting intact).")

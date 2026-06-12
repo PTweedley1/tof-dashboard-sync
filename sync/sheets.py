@@ -75,3 +75,55 @@ def clear_and_write_rows(sheet_id, tab_name, rows):
         valueInputOption="USER_ENTERED",
         body={"values": rows},
     ).execute()
+
+
+def update_data_section(sheet_id, tab_name, data_rows, date_label=None):
+    """
+    Update only the data rows in a tab that has a header/title section above.
+
+    Scans column A to find the row with 'Date' (the column header row).
+    Clears everything below it and writes fresh data rows.
+    Optionally updates a 'Last Updated' cell in the header section.
+    """
+    service = get_sheets_service()
+    col_a = read_tab(sheet_id, tab_name, "A:A")
+
+    header_row_idx = None   # 0-based index of the 'Date' column header row
+    last_updated_row_idx = None  # 0-based index of the 'Last Updated' row
+
+    for i, row in enumerate(col_a):
+        val = row[0].strip().lower() if row else ""
+        if val == "date" or val == "date range":
+            header_row_idx = i
+        if "last updated" in val:
+            last_updated_row_idx = i
+
+    if header_row_idx is None:
+        # No existing structure — fall back to full overwrite starting at A1
+        clear_and_write_rows(sheet_id, tab_name, data_rows)
+        return
+
+    data_start_row = header_row_idx + 2  # 1-indexed row where data begins
+
+    # Update "Last Updated" adjacent cell (column B of that row)
+    if date_label and last_updated_row_idx is not None:
+        lu_cell = f"{tab_name}!B{last_updated_row_idx + 1}"
+        service.spreadsheets().values().update(
+            spreadsheetId=sheet_id,
+            range=lu_cell,
+            valueInputOption="USER_ENTERED",
+            body={"values": [[date_label]]},
+        ).execute()
+
+    # Clear old data rows and write fresh ones
+    service.spreadsheets().values().clear(
+        spreadsheetId=sheet_id,
+        range=f"{tab_name}!A{data_start_row}:J500",
+    ).execute()
+    if data_rows:
+        service.spreadsheets().values().update(
+            spreadsheetId=sheet_id,
+            range=f"{tab_name}!A{data_start_row}",
+            valueInputOption="USER_ENTERED",
+            body={"values": data_rows},
+        ).execute()
