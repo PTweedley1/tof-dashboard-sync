@@ -13,6 +13,7 @@ from sync import campaigns as camp
 
 PROPERTY_ID = "332137414"
 DEST_TAB = DEST_TABS["ga4"]
+START_DATE = "2026-05-01"
 
 
 def _get_client():
@@ -30,11 +31,11 @@ def _get_client():
     return BetaAnalyticsDataClient(credentials=creds)
 
 
-def _fetch(run_date: str, urls: list):
+def _fetch(start_date: str, end_date: str, urls: list):
     client = _get_client()
     request = RunReportRequest(
         property=f"properties/{PROPERTY_ID}",
-        date_ranges=[DateRange(start_date=run_date, end_date=run_date)],
+        date_ranges=[DateRange(start_date=start_date, end_date=end_date)],
         dimensions=[
             Dimension(name="date"),
             Dimension(name="pagePath"),
@@ -55,6 +56,7 @@ def _fetch(run_date: str, urls: list):
                 in_list_filter=Filter.InListFilter(values=urls),
             )
         ),
+        limit=100000,
     )
     return client.run_report(request)
 
@@ -75,21 +77,21 @@ def sync():
     yesterday = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
     existing_dates = get_existing_dates(DESTINATION_SHEET_ID, DEST_TAB)
 
-    if yesterday in existing_dates:
-        print(f"  GA4_Pages is already up to date (has {yesterday}).")
-        return
-
-    response = _fetch(yesterday, urls)
+    print(f"  Fetching GA4 data from {START_DATE} to {yesterday}...")
+    response = _fetch(START_DATE, yesterday, urls)
 
     new_rows = []
     for row in response.rows:
+        row_date = _format_date(row.dimension_values[0].value)
+        if row_date in existing_dates:
+            continue  # already in sheet, skip
+
         page_path = row.dimension_values[1].value
-        campaign_name = camp.campaign_for_url(page_path)
         eng_rate = float(row.metric_values[3].value)
         bounce_rate = float(row.metric_values[5].value)
 
         new_rows.append([
-            yesterday,
+            row_date,
             page_path,                    # URL
             row.metric_values[0].value,   # Sessions
             row.metric_values[1].value,   # Active Users
@@ -101,8 +103,13 @@ def sync():
             round(float(row.metric_values[7].value), 2),  # Revenue ($)
         ])
 
+    # Sort by date so rows land in chronological order
+    new_rows.sort(key=lambda r: r[0])
+
     if new_rows:
         append_rows(DESTINATION_SHEET_ID, DEST_TAB, new_rows)
-        print(f"  Added {len(new_rows)} row(s) for {yesterday} to '{DEST_TAB}'.")
+        dates_added = sorted({r[0] for r in new_rows})
+        print(f"  Added {len(new_rows)} row(s) across {len(dates_added)} date(s) to '{DEST_TAB}'.")
+        print(f"  Date range covered: {dates_added[0]} → {dates_added[-1]}")
     else:
-        print(f"  No GA4 data found for {yesterday} on campaign pages.")
+        print(f"  GA4_Pages already has all data from {START_DATE} to {yesterday}.")
