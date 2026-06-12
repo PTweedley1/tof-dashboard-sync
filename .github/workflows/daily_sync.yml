@@ -25,4 +25,5 @@ jobs:
       - name: Run sync
         env:
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          JUSTUNO_REFRESH_TOKEN: ${{ secrets.JUSTUNO_REFRESH_TOKEN }}
         run: python main.py
