@@ -5,6 +5,23 @@
       "name": "TOF - April Launch",
       "launched": "2026-04-24",
       "triple_whale_campaigns": ["Authority Delivery", "Problem Absorption", "Proof Outcome"],
+      "concepts": [
+        {
+          "name": "Problem Absorption",
+          "tw_campaign": "Problem Absorption",
+          "urls": ["/pages/problem-absorption-av1", "/pages/problem-absorption-av2"]
+        },
+        {
+          "name": "Authority Delivery",
+          "tw_campaign": "Authority Delivery",
+          "urls": ["/pages/authority-delivery-a", "/pages/authority-delivery-av2"]
+        },
+        {
+          "name": "Proof Outcome",
+          "tw_campaign": "Proof Outcome",
+          "urls": ["/pages/proof-outcome-av1", "/pages/proof-outcome-av2"]
+        }
+      ],
       "urls": [
         "/pages/problem-absorption-av1",
         "/pages/problem-absorption-av2",
@@ -25,6 +42,13 @@
       "name": "Listicles - June Launch",
       "launched": "2026-06-15",
       "triple_whale_campaigns": [],
+      "concepts": [
+        {
+          "name": "Listicles",
+          "tw_campaign": "",
+          "urls": []
+        }
+      ],
       "urls": [],
       "discount_codes": []
     }
