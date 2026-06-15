@@ -1,8 +1,8 @@
 name: Daily Dashboard Sync
 
 on:
-  schedule:
-    - cron: "0 15 * * *"  # 8am PST (UTC-7) every day
+  # schedule:
+  #   - cron: "0 15 * * *"  # 8am PST (UTC-7) every day — PAUSED, re-enable when sheet is ready
   workflow_dispatch:        # allows manual trigger from GitHub UI
 
 env:
