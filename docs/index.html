@@ -2,468 +2,415 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Cymbiotika TOF Dashboard</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
-  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0F172A;color:#E2E8F0;font-size:13px;line-height:1.5;min-height:100vh}
-  .wrapper{max-width:1200px;margin:0 auto;padding:28px 24px 48px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F8F9FA;color:#1A1A2E;font-size:14px;line-height:1.5}
 
-  /* Header */
-  .hdr{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:24px;padding-bottom:20px;border-bottom:1px solid #1E293B}
-  .hdr-l h1{font-size:20px;font-weight:800;letter-spacing:-.4px;color:#F8FAFC}
-  .hdr-l p{font-size:11px;color:#64748B;margin-top:3px}
-  .hdr-r{font-size:11px;color:#475569;text-align:right}
-  .hdr-r span{color:#38BDF8}
+.wrap{max-width:1200px;margin:0 auto;padding:32px 28px 80px}
 
-  /* Campaign tabs */
-  .tabs{display:flex;gap:8px;margin-bottom:24px;flex-wrap:wrap}
-  .tab{padding:7px 16px;border-radius:6px;border:1px solid #1E293B;background:transparent;color:#64748B;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s}
-  .tab:hover{border-color:#334155;color:#CBD5E1}
-  .tab.active{background:#38BDF8;border-color:#38BDF8;color:#0F172A}
+/* ── Header ── */
+.hdr{margin-bottom:28px}
+.hdr h1{font-size:24px;font-weight:800;color:#1A1A2E;letter-spacing:-.4px}
+.hdr p{font-size:13px;color:#6B7280;margin-top:4px}
+.hdr-meta{font-size:12px;color:#9CA3AF;margin-top:2px}
 
-  /* KPI Cards */
-  .kpi-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:24px}
-  .kpi{background:#1E293B;border:1px solid #334155;border-radius:10px;padding:14px 16px;border-top:3px solid var(--c,#334155)}
-  .kpi .label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#64748B;margin-bottom:6px}
-  .kpi .val{font-size:22px;font-weight:900;color:var(--c,#F8FAFC);line-height:1}
-  .kpi .sub{font-size:10px;color:#475569;margin-top:4px}
+/* ── Concept tabs ── */
+.tabs{display:flex;gap:6px;margin-bottom:28px;flex-wrap:wrap}
+.tab{padding:8px 16px;border-radius:8px;border:1.5px solid #E5E7EB;background:#fff;cursor:pointer;font-size:13px;font-weight:600;color:#6B7280;transition:all .15s;outline:none}
+.tab:hover{border-color:#D1D5DB;color:#374151}
+.tab.on{border-color:var(--cc);background:var(--cc);color:#fff}
 
-  /* Charts */
-  .charts-row{display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:24px}
-  .chart-card{background:#1E293B;border:1px solid #334155;border-radius:10px;padding:18px 20px}
-  .chart-card h3{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#64748B;margin-bottom:14px}
-  .chart-wrap{position:relative;height:220px}
+/* ── KPI row ── */
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:28px}
+.kpi{background:#fff;border:1.5px solid #E5E7EB;border-radius:12px;padding:20px 18px}
+.kpi-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#9CA3AF;margin-bottom:8px}
+.kpi-val{font-size:28px;font-weight:800;color:#1A1A2E;letter-spacing:-.5px;line-height:1}
+.kpi-sub{font-size:11px;color:#9CA3AF;margin-top:5px}
+.kpi.accent{border-color:#6366F1;background:linear-gradient(135deg,#6366F1 0%,#8B5CF6 100%)}
+.kpi.accent .kpi-label{color:rgba(255,255,255,.7)}
+.kpi.accent .kpi-val{color:#fff;font-size:32px}
+.kpi.accent .kpi-sub{color:rgba(255,255,255,.6)}
 
-  /* Tables */
-  .table-card{background:#1E293B;border:1px solid #334155;border-radius:10px;padding:18px 20px;margin-bottom:16px}
-  .table-card h3{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#64748B;margin-bottom:14px}
-  table{width:100%;border-collapse:collapse}
-  th{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#475569;padding:7px 10px;border-bottom:1px solid #334155;text-align:left;white-space:nowrap}
-  td{padding:8px 10px;border-bottom:1px solid #1E293B;font-size:12px;color:#CBD5E1}
-  tr:last-child td{border-bottom:none}
-  tr:hover td{background:#243047}
-  .num{text-align:right;font-variant-numeric:tabular-nums}
-  .good{color:#34D399}
-  .warn{color:#FBBF24}
-  .muted{color:#475569}
+/* ── Concept cards ── */
+.section-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:#9CA3AF;margin-bottom:12px;margin-top:32px}
+.concept-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.concept-card{background:#fff;border:1.5px solid #E5E7EB;border-radius:12px;overflow:hidden}
+.concept-card-hdr{padding:14px 18px 10px;border-bottom:1px solid #F3F4F6;display:flex;align-items:center;gap:10px}
+.concept-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.concept-card-hdr h3{font-size:13px;font-weight:700;color:#374151}
+.concept-card-hdr span{font-size:11px;color:#9CA3AF}
+.concept-metrics{padding:14px 18px;display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.cm{display:flex;flex-direction:column;gap:3px}
+.cm-label{font-size:11px;color:#9CA3AF;font-weight:500}
+.cm-val{font-size:18px;font-weight:800;color:#1A1A2E;letter-spacing:-.3px}
+.cm-val.good{color:#10B981}
+.concept-card .bottom-stat{padding:12px 18px;background:#F9FAFB;border-top:1px solid #F3F4F6;display:flex;justify-content:space-between;align-items:center}
+.bottom-stat-label{font-size:11px;color:#6B7280;font-weight:500}
+.bottom-stat-val{font-size:14px;font-weight:700;color:#374151}
 
-  /* Bottom row */
-  .bottom-row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+/* ── Two-column tables ── */
+.table-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}
+.t-card{background:#fff;border:1.5px solid #E5E7EB;border-radius:12px;overflow:hidden}
+.t-card-hdr{padding:14px 18px;border-bottom:1px solid #F3F4F6;display:flex;justify-content:space-between;align-items:center}
+.t-card-hdr h3{font-size:13px;font-weight:700;color:#374151}
+.t-card-hdr a{font-size:11px;color:#6366F1;text-decoration:none;font-weight:500}
+.t-card-hdr a:hover{text-decoration:underline}
+table{width:100%;border-collapse:collapse}
+th{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;color:#9CA3AF;padding:9px 16px;border-bottom:1px solid #F3F4F6;text-align:left;background:#fff}
+td{padding:10px 16px;border-bottom:1px solid #F9FAFB;font-size:13px;color:#374151}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#FAFAFA}
+tfoot td{font-weight:700;color:#1A1A2E;border-top:1.5px solid #E5E7EB;border-bottom:none;background:#F9FAFB}
+.r{text-align:right;font-variant-numeric:tabular-nums}
+.g{color:#10B981;font-weight:600}
+.dim{color:#D1D5DB}
+.tag{display:inline-block;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px}
 
-  /* Loading */
-  .loading{display:flex;align-items:center;justify-content:center;height:120px;color:#475569;font-size:12px}
-  .spinner{width:20px;height:20px;border:2px solid #334155;border-top-color:#38BDF8;border-radius:50%;animation:spin .7s linear infinite;margin-right:10px}
-  @keyframes spin{to{transform:rotate(360deg)}}
+/* ── Meta detail row ── */
+.meta-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.meta-stat{background:#fff;border:1.5px solid #E5E7EB;border-radius:12px;padding:16px 18px}
+.meta-stat-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#9CA3AF;margin-bottom:6px}
+.meta-stat-val{font-size:22px;font-weight:800;color:#1A1A2E;letter-spacing:-.3px}
+.meta-stat-sub{font-size:11px;color:#9CA3AF;margin-top:3px}
 
-  /* No data */
-  .empty{color:#475569;font-style:italic;font-size:12px;padding:12px 0}
+/* ── Loading / empty ── */
+.loading{padding:24px 16px;color:#D1D5DB;text-align:center;font-size:13px}
 
-  @media(max-width:900px){
-    .kpi-grid{grid-template-columns:repeat(3,1fr)}
-    .charts-row{grid-template-columns:1fr}
-    .bottom-row{grid-template-columns:1fr}
-  }
+@media(max-width:1024px){
+  .kpi-row{grid-template-columns:repeat(2,1fr)}
+  .concept-row{grid-template-columns:1fr}
+  .meta-row{grid-template-columns:repeat(2,1fr)}
+  .table-row{grid-template-columns:1fr}
+}
+@media(max-width:640px){
+  .kpi-row{grid-template-columns:1fr 1fr}
+  .kpi.accent{grid-column:span 2}
+}
 </style>
 </head>
 <body>
-<div class="wrapper">
+<div class="wrap">
 
-  <!-- Header -->
-  <div class="hdr">
-    <div class="hdr-l">
-      <h1>Cymbiotika TOF Dashboard</h1>
-      <p>Top-of-Funnel Campaign Performance</p>
-    </div>
-    <div class="hdr-r">
-      Live data from Google Sheets<br>
-      Updated: <span id="updated">Loading...</span>
-    </div>
-  </div>
-
-  <!-- Campaign tabs -->
-  <div class="tabs" id="tabs"></div>
-
-  <!-- KPI Cards -->
-  <div class="kpi-grid" id="kpis">
-    <div class="kpi" style="--c:#38BDF8"><div class="label">Total Spend</div><div class="val" id="kpi-spend">—</div></div>
-    <div class="kpi" style="--c:#A78BFA"><div class="label">Blended ROAS</div><div class="val" id="kpi-roas">—</div></div>
-    <div class="kpi" style="--c:#34D399"><div class="label">New Customers</div><div class="val" id="kpi-ncp">—</div></div>
-    <div class="kpi" style="--c:#FB923C"><div class="label">Sessions (GA4)</div><div class="val" id="kpi-sessions">—</div></div>
-    <div class="kpi" style="--c:#F472B6"><div class="label">Revenue (GA4)</div><div class="val" id="kpi-revenue">—</div></div>
-  </div>
-
-  <!-- Charts -->
-  <div class="charts-row">
-    <div class="chart-card">
-      <h3>Daily Spend by TW Campaign</h3>
-      <div class="chart-wrap"><canvas id="spendChart"></canvas></div>
-    </div>
-    <div class="chart-card">
-      <h3>ROAS by TW Campaign</h3>
-      <div class="chart-wrap"><canvas id="roasChart"></canvas></div>
-    </div>
-  </div>
-
-  <!-- GA4 Table -->
-  <div class="table-card">
-    <h3>Page Performance — GA4</h3>
-    <div id="ga4-wrap"><div class="loading"><div class="spinner"></div>Loading...</div></div>
-  </div>
-
-  <!-- Bottom row -->
-  <div class="bottom-row">
-    <div class="table-card">
-      <h3>Meta / Triple Whale — Campaign Summary</h3>
-      <div id="meta-wrap"><div class="loading"><div class="spinner"></div>Loading...</div></div>
-    </div>
-    <div class="table-card">
-      <h3>Justuno — Email & SMS Capture</h3>
-      <div id="justuno-wrap"><div class="loading"><div class="spinner"></div>Loading...</div></div>
-    </div>
-  </div>
-
+<!-- Header -->
+<div class="hdr">
+  <h1>TOF Campaign Dashboard</h1>
+  <p>Top-of-Funnel Performance &nbsp;·&nbsp; Apr 24, 2026 → Present</p>
+  <div class="hdr-meta">Last refreshed: <span id="ts">Loading…</span></div>
 </div>
 
-<script>
-// ─── CONFIG ──────────────────────────────────────────────────────────────────
-const SHEET_ID = "1Mcj1sUXlYDitKdcqNwTt_CUIZ_5yHjWCh1Mek7-uKus";
+<!-- Concept filter -->
+<div class="tabs" id="tabs"></div>
 
-const CAMPAIGNS = [
-  {
-    id: "tof-april-2026",
-    name: "TOF — April Launch",
-    launched: "2026-04-24",
-    tw: ["Authority Delivery", "Problem Absorption", "Proof Outcome"],
-    urls: [
-      "/pages/problem-absorption-av1",
-      "/pages/problem-absorption-av2",
-      "/pages/authority-delivery-av1",
-      "/pages/authority-delivery-av2",
-      "/pages/proof-outcome-av1",
-      "/pages/proof-outcome-av2"
-    ]
-  },
-  {
-    id: "listicles-june-2026",
-    name: "Listicles — June Launch",
-    launched: "2026-06-15",
-    tw: [],
-    urls: []
-  }
+<!-- KPI row -->
+<div class="kpi-row">
+  <div class="kpi accent">
+    <div class="kpi-label">Net Revenue</div>
+    <div class="kpi-val" id="k-rev">—</div>
+    <div class="kpi-sub">Post-discount · Shopify</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-label">Ad Spend</div>
+    <div class="kpi-val" id="k-spend">—</div>
+    <div class="kpi-sub">Meta · Triple Whale</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-label">Blended ROAS</div>
+    <div class="kpi-val" id="k-roas">—</div>
+    <div class="kpi-sub">Revenue ÷ Spend</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-label">CPA (Deterministic)</div>
+    <div class="kpi-val" id="k-cpa">—</div>
+    <div class="kpi-sub">Spend ÷ Shopify new</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-label">New Customers</div>
+    <div class="kpi-val" id="k-newc">—</div>
+    <div class="kpi-sub">Shopify deterministic</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-label">Total TOF Orders</div>
+    <div class="kpi-val" id="k-orders">—</div>
+    <div class="kpi-sub">All TOF-tagged · Shopify</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-label">Subscription Mix</div>
+    <div class="kpi-val" id="k-sub">—</div>
+    <div class="kpi-sub">% of orders subscribed</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-label">Avg Opt-In Rate</div>
+    <div class="kpi-val" id="k-optin">—</div>
+    <div class="kpi-sub">Email + SMS · Justuno</div>
+  </div>
+</div>
+
+<!-- Per-concept breakdown -->
+<div class="section-title">Breakdown by Concept</div>
+<div class="concept-row" id="concept-row"></div>
+
+<!-- Meta detail -->
+<div class="section-title" style="margin-top:32px">Meta Ad Performance</div>
+<div class="meta-row">
+  <div class="meta-stat">
+    <div class="meta-stat-label">TW ROAS</div>
+    <div class="meta-stat-val" id="tw-roas">—</div>
+    <div class="meta-stat-sub">Triple Whale attributed</div>
+  </div>
+  <div class="meta-stat">
+    <div class="meta-stat-label">Avg CPM</div>
+    <div class="meta-stat-val" id="tw-cpm">—</div>
+    <div class="meta-stat-sub">Cost per 1,000 impressions</div>
+  </div>
+  <div class="meta-stat">
+    <div class="meta-stat-label">Avg CPC</div>
+    <div class="meta-stat-val" id="tw-cpc">—</div>
+    <div class="meta-stat-sub">Cost per click</div>
+  </div>
+  <div class="meta-stat">
+    <div class="meta-stat-label">Avg CTR</div>
+    <div class="meta-stat-val" id="tw-ctr">—</div>
+    <div class="meta-stat-sub">Click-through rate</div>
+  </div>
+</div>
+
+<!-- GA4 + Justuno -->
+<div class="table-row">
+  <div class="t-card">
+    <div class="t-card-hdr">
+      <h3>Page Performance</h3>
+      <a href="https://docs.google.com/spreadsheets/d/1TTu5AagW6kRXVW9pCtKx78C36VVrnddu19X_Vw0MacM/edit#gid=730578108" target="_blank" rel="noopener">View in Sheets ↗</a>
+    </div>
+    <div id="ga4-inner"><div class="loading">Loading…</div></div>
+  </div>
+  <div class="t-card">
+    <div class="t-card-hdr">
+      <h3>Email &amp; SMS Capture</h3>
+      <a href="https://docs.google.com/spreadsheets/d/1TTu5AagW6kRXVW9pCtKx78C36VVrnddu19X_Vw0MacM/edit#gid=1674996253" target="_blank" rel="noopener">View in Sheets ↗</a>
+    </div>
+    <div id="ju-inner"><div class="loading">Loading…</div></div>
+  </div>
+</div>
+
+</div>
+<script>
+const SID = "1TTu5AagW6kRXVW9pCtKx78C36VVrnddu19X_Vw0MacM";
+
+const CONCEPTS = [
+  {id:"ALL", name:"All",                  color:"#6366F1"},
+  {id:"PA",  name:"Problem & Absorption", color:"#8B5CF6"},
+  {id:"PO",  name:"Proof & Outcome",      color:"#10B981"},
+  {id:"AD",  name:"Authority & Delivery", color:"#3B82F6"},
+  {id:"LIS", name:"Listicle",             color:"#F59E0B"},
 ];
 
-const COLORS = {
-  "Authority Delivery": "#38BDF8",
-  "Problem Absorption": "#A78BFA",
-  "Proof Outcome":      "#34D399",
-};
+const PP_URLS    = ["PA-AV1","PA-AV2","PO-AV1","PO-AV2","AD-A","AD-AV2"];
+const PP_CONCEPT = ["PA",    "PA",    "PO",    "PO",    "AD",  "AD"   ];
+const CC = {PA:1,PO:2,AD:3};
 
-// ─── SHEET FETCH ─────────────────────────────────────────────────────────────
-async function fetchSheet(tabName) {
-  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(tabName)}`;
-  try {
-    const res = await fetch(url);
-    const text = await res.text();
-    const json = JSON.parse(text.replace(/^[^\{]*/, "").replace(/[^\}]*$/, ""));
-    if (!json.table) return { headers: [], rows: [] };
-    const headers = json.table.cols.map(c => c.label || "");
-    const rows = json.table.rows
-      .filter(r => r && r.c)
-      .map(r => r.c.map(c => (c && c.v !== null && c.v !== undefined) ? c.v : ""));
-    return { headers, rows };
-  } catch (e) {
-    console.warn("Failed to fetch tab:", tabName, e);
-    return { headers: [], rows: [] };
-  }
+let TW=[],PCO=[],PP=[],JU=[],DB={};
+let active="ALL";
+
+async function fetchTab(tab,range){
+  let url=`https://docs.google.com/spreadsheets/d/${SID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(tab)}`;
+  if(range)url+=`&range=${encodeURIComponent(range)}`;
+  try{
+    const txt=await(await fetch(url)).text();
+    const json=JSON.parse(txt.replace(/^[^\{]*/,"").replace(/[^\}]*$/,""));
+    if(!json.table)return[];
+    return json.table.rows.filter(r=>r&&r.c).map(r=>r.c.map(c=>{
+      if(!c||c.v===null||c.v===undefined)return"";
+      return(c.f!==null&&c.f!==undefined)?c.f:c.v;
+    }));
+  }catch(e){console.warn(tab,e);return[];}
 }
 
-// ─── HELPERS ─────────────────────────────────────────────────────────────────
-function fmt$(n) {
-  const v = parseNum(n);
-  return v >= 1000 ? "$" + (v/1000).toFixed(1) + "k" : "$" + v.toFixed(2);
+async function fetchDashboard(){
+  let url=`https://docs.google.com/spreadsheets/d/${SID}/gviz/tq?tqx=out:json&sheet=Dashboard&range=A1:B50`;
+  try{
+    const txt=await(await fetch(url)).text();
+    const json=JSON.parse(txt.replace(/^[^\{]*/,"").replace(/[^\}]*$/,""));
+    if(!json.table)return{};
+    const map={};
+    (json.table.rows||[]).forEach(r=>{
+      if(r&&r.c&&r.c[0]&&r.c[0].v){
+        const key=String(r.c[0].v).trim();
+        const cell=r.c[1];
+        map[key]=cell?(cell.f!==null&&cell.f!==undefined?cell.f:cell.v)||"":"";
+      }
+    });
+    return map;
+  }catch(e){console.warn("Dashboard",e);return{};}
 }
-function fmtBig$(n) {
-  const v = parseNum(n);
-  return v >= 1000000 ? "$" + (v/1000000).toFixed(2) + "M"
-       : v >= 1000    ? "$" + (v/1000).toFixed(1) + "k"
-       : "$" + v.toFixed(2);
-}
-function parseNum(v) {
-  if (typeof v === "number") return v;
-  if (typeof v === "string") return parseFloat(v.replace(/[$,%]/g,"").replace(/,/g,"")) || 0;
-  return 0;
-}
-function pct(n) { return (parseNum(n)*100).toFixed(1) + "%"; }
 
-// ─── STATE ───────────────────────────────────────────────────────────────────
-let twData = { headers: [], rows: [] };
-let ga4Data = { headers: [], rows: [] };
-let juData  = { headers: [], rows: [] };
-let activeCampaign = CAMPAIGNS[0];
-let spendChart, roasChart;
+const N  = v=>{if(typeof v==="number")return v;return parseFloat(String(v).replace(/[$,%]/g,"").replace(/,/g,""))||0;};
+const $$ = (v,d=0)=>{const n=N(v);if(n>=1e6)return"$"+(n/1e6).toFixed(2)+"M";if(n>=1e3)return"$"+(n/1e3).toFixed(1)+"k";return"$"+n.toFixed(d);};
+const nn = (v,d=0)=>N(v).toLocaleString("en-US",{maximumFractionDigits:d});
+const pp = (v,d=1)=>N(v).toFixed(d)+"%";
+const xx = (v,d=2)=>N(v).toFixed(d)+"x";
 
-// ─── BUILD TABS ──────────────────────────────────────────────────────────────
-function buildTabs() {
-  const el = document.getElementById("tabs");
-  CAMPAIGNS.forEach((c, i) => {
-    const btn = document.createElement("button");
-    btn.className = "tab" + (i === 0 ? " active" : "");
-    btn.textContent = c.name;
-    btn.onclick = () => {
-      document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
-      btn.classList.add("active");
-      activeCampaign = c;
+function pcoGet(metric,concept){
+  const row=PCO.find(r=>r[0]===metric);
+  if(!row)return 0;
+  if(concept==="ALL")return Object.values(CC).reduce((s,ci)=>s+N(row[ci]||0),0);
+  const ci=CC[concept];
+  return ci!==undefined?N(row[ci]||0):0;
+}
+function ppRow(m){return PP.find(r=>r[0]===m);}
+function wavg(rows,vi,wi){const ws=rows.reduce((s,r)=>s+N(r[wi]),0);return ws?rows.reduce((s,r)=>s+N(r[vi])*N(r[wi]),0)/ws:0;}
+function cSpend(c,allTW){return allTW.filter(r=>r[9]===c).reduce((s,r)=>s+N(r[2]),0);}
+function cSess(c){const row=ppRow("Sessions");if(!row)return 0;return PP_URLS.reduce((s,_,i)=>PP_CONCEPT[i]===c?s+N(row[i+1]||0):s,0);}
+
+function s(id,val){const el=document.getElementById(id);if(el)el.textContent=val;}
+
+function buildTabs(){
+  const el=document.getElementById("tabs");
+  CONCEPTS.forEach((c,i)=>{
+    const b=document.createElement("button");
+    b.className="tab"+(i===0?" on":"");
+    b.style.setProperty("--cc",c.color);
+    b.textContent=c.name;
+    b.onclick=()=>{
+      document.querySelectorAll(".tab").forEach(t=>t.classList.remove("on"));
+      b.classList.add("on");
+      active=c.id;
       render();
     };
-    el.appendChild(btn);
+    el.appendChild(b);
   });
 }
 
-// ─── RENDER ──────────────────────────────────────────────────────────────────
-function render() {
-  const c = activeCampaign;
-  const twRows = twData.rows.filter(r => r[1] && c.tw.includes(r[1]));
-  const ga4Rows = ga4Data.rows.filter(r => r[1] && c.urls.includes(r[1]));
+function render(){
+  const c=active;
+  const allTW=TW.filter(r=>r[2]&&r[2]!=="Spend ($)");
+  const twF=c==="ALL"?allTW:allTW.filter(r=>r[9]===c);
 
-  renderKPIs(twRows, ga4Rows);
-  renderSpendChart(twRows, c.tw);
-  renderRoasChart(twRows, c.tw);
-  renderGA4Table(ga4Rows);
-  renderMetaTable(twRows, c.tw);
-  renderJustuno();
+  const spend = twF.reduce((s,r)=>s+N(r[2]),0);
+  const rev   = c==="ALL" ? N(DB["Total TOF Revenue (Shopify)"]||0)||pcoGet("Net Revenue",c) : pcoGet("Net Revenue",c);
+  const newC  = pcoGet("New Customers",c);
+  const juF   = c==="ALL"?JU.filter(r=>r[2]):JU.filter(r=>r[2]&&r[4]===c);
+  const juImpr   = juF.reduce((s,r)=>s+N(r[5]),0);
+  const juOptins = juF.reduce((s,r)=>s+N(r[6])+N(r[7]),0);
+  const roas  = spend>0?rev/spend:0;
+  const cpa   = newC>0?spend/newC:0;
+  const optInRate = juImpr>0?(juOptins/juImpr*100).toFixed(1)+"%":"—";
+
+  s("k-rev",    rev   ? $$(rev)   : "—");
+  s("k-spend",  spend ? $$(spend) : "—");
+  s("k-roas",   roas  ? xx(roas)  : "—");
+  s("k-cpa",    cpa   ? $$(cpa)   : "—");
+  s("k-newc",   newC  ? nn(newC)  : "—");
+  s("k-orders", DB["Total TOF Orders"]||"—");
+  s("k-sub",    DB["Subscription % of Mix"]||"—");
+  s("k-optin",  optInRate);
+
+  s("tw-roas", wavg(twF,7,2) ? xx(wavg(twF,7,2)) : "—");
+  s("tw-cpm",  spend ? $$(wavg(twF,3,2)) : "—");
+  s("tw-cpc",  spend ? $$(wavg(twF,4,2)) : "—");
+  s("tw-ctr",  spend ? pp(wavg(twF,5,2)) : "—");
+
+  renderConcepts(allTW);
+  renderGA4(c);
+  renderJustuno(juF);
 }
 
-function renderKPIs(twRows, ga4Rows) {
-  const totalSpend = twRows.reduce((s,r) => s + parseNum(r[2]), 0);
-  const totalNCP   = twRows.reduce((s,r) => s + parseNum(r[8]), 0);
-  const totalRev   = ga4Rows.reduce((s,r) => s + parseNum(r[9]), 0);
-  const totalSess  = ga4Rows.reduce((s,r) => s + parseNum(r[2]), 0);
-  const avgROAS    = twRows.length
-    ? (twRows.reduce((s,r) => s + parseNum(r[7]), 0) / twRows.length)
-    : 0;
+function renderConcepts(allTW){
+  const concepts = active==="ALL"
+    ? CONCEPTS.filter(x=>x.id!=="ALL"&&x.id!=="LIS")
+    : CONCEPTS.filter(x=>x.id===active&&x.id!=="ALL");
 
-  document.getElementById("kpi-spend").textContent    = fmtBig$(totalSpend);
-  document.getElementById("kpi-roas").textContent     = avgROAS.toFixed(2) + "x";
-  document.getElementById("kpi-ncp").textContent      = totalNCP.toLocaleString();
-  document.getElementById("kpi-sessions").textContent = totalSess >= 1000
-    ? (totalSess/1000).toFixed(1) + "k" : totalSess;
-  document.getElementById("kpi-revenue").textContent  = fmtBig$(totalRev);
-}
-
-function getDateGroups(twRows, twNames) {
-  const dates = [...new Set(twRows.map(r => r[0]))].sort();
-  const datasets = twNames.map(name => {
-    const color = COLORS[name] || "#94A3B8";
-    return {
-      label: name,
-      data: dates.map(d => {
-        const match = twRows.find(r => r[0] === d && r[1] === name);
-        return match ? parseNum(match[2]) : 0;
-      }),
-      borderColor: color,
-      backgroundColor: color + "22",
-      borderWidth: 2,
-      tension: 0.4,
-      pointRadius: 2,
-    };
-  });
-  return { dates, datasets };
-}
-
-function renderSpendChart(twRows, twNames) {
-  const { dates, datasets } = getDateGroups(twRows, twNames);
-  const ctx = document.getElementById("spendChart").getContext("2d");
-  if (spendChart) spendChart.destroy();
-
-  if (!dates.length) {
-    ctx.clearRect(0,0,9999,9999);
-    ctx.fillStyle = "#475569";
-    ctx.fillText("No data for this campaign yet", 60, 110);
-    return;
-  }
-
-  spendChart = new Chart(ctx, {
-    type: "line",
-    data: { labels: dates.map(d => d.slice(5)), datasets },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { labels: { color: "#94A3B8", font: { size: 11 } } } },
-      scales: {
-        x: { ticks: { color: "#475569", font: { size: 10 } }, grid: { color: "#1E293B" } },
-        y: { ticks: { color: "#475569", font: { size: 10 }, callback: v => "$"+v.toLocaleString() }, grid: { color: "#1E293B" } }
-      }
-    }
-  });
-}
-
-function renderRoasChart(twRows, twNames) {
-  const ctx = document.getElementById("roasChart").getContext("2d");
-  if (roasChart) roasChart.destroy();
-
-  const avgByName = twNames.map(name => {
-    const rows = twRows.filter(r => r[1] === name);
-    const avg = rows.length ? rows.reduce((s,r) => s + parseNum(r[7]), 0) / rows.length : 0;
-    return { name, avg };
-  }).filter(d => d.avg > 0);
-
-  if (!avgByName.length) {
-    ctx.clearRect(0,0,9999,9999);
-    ctx.fillStyle = "#475569";
-    ctx.fillText("No data yet", 60, 110);
-    return;
-  }
-
-  roasChart = new Chart(ctx, {
-    type: "bar",
-    data: {
-      labels: avgByName.map(d => d.name),
-      datasets: [{
-        label: "Avg ROAS",
-        data: avgByName.map(d => +d.avg.toFixed(3)),
-        backgroundColor: avgByName.map(d => COLORS[d.name] || "#94A3B8"),
-        borderRadius: 5,
-      }]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
-      scales: {
-        x: { ticks: { color: "#475569", font: { size: 10 } }, grid: { color: "#1E293B" } },
-        y: { ticks: { color: "#475569", font: { size: 10 } }, grid: { color: "#1E293B" } }
-      }
-    }
-  });
-}
-
-function renderGA4Table(ga4Rows) {
-  const wrap = document.getElementById("ga4-wrap");
-  if (!ga4Rows.length) {
-    wrap.innerHTML = "<p class='empty'>No GA4 data configured for this campaign yet.</p>";
-    return;
-  }
-  let totalSess=0, totalConv=0, totalRev=0;
-  const rowsHtml = ga4Rows.map(r => {
-    const sess = parseNum(r[2]), conv = parseNum(r[8]), rev = parseNum(r[9]);
-    totalSess += sess; totalConv += conv; totalRev += rev;
-    const url = String(r[1]).replace("/pages/","");
-    return `<tr>
-      <td>${url}</td>
-      <td class="num">${sess.toLocaleString()}</td>
-      <td class="num">${parseNum(r[3]).toLocaleString()}</td>
-      <td class="num">${parseNum(r[4]).toLocaleString()}</td>
-      <td class="num">${r[5]}</td>
-      <td class="num">${r[6]}s</td>
-      <td class="num">${r[7]}</td>
-      <td class="num">${conv.toLocaleString()}</td>
-      <td class="num good">${fmtBig$(rev)}</td>
-    </tr>`;
+  const el=document.getElementById("concept-row");
+  el.innerHTML = concepts.map(({id,name,color})=>{
+    const spend  = cSpend(id,allTW);
+    const rev    = pcoGet("Net Revenue",id);
+    const newC   = pcoGet("New Customers",id);
+    const sess   = cSess(id);
+    const roas   = spend>0?rev/spend:0;
+    const cpa    = newC>0?spend/newC:0;
+    return`
+    <div class="concept-card">
+      <div class="concept-card-hdr">
+        <div class="concept-dot" style="background:${color}"></div>
+        <h3>${name}</h3>
+        <span>${id}</span>
+      </div>
+      <div class="concept-metrics">
+        <div class="cm">
+          <div class="cm-label">Net Revenue</div>
+          <div class="cm-val good">${rev?$$(rev):"—"}</div>
+        </div>
+        <div class="cm">
+          <div class="cm-label">ROAS</div>
+          <div class="cm-val">${roas?xx(roas):"—"}</div>
+        </div>
+        <div class="cm">
+          <div class="cm-label">New Customers</div>
+          <div class="cm-val">${newC?nn(newC):"—"}</div>
+        </div>
+        <div class="cm">
+          <div class="cm-label">Sessions</div>
+          <div class="cm-val">${sess?nn(sess):"—"}</div>
+        </div>
+      </div>
+      <div class="bottom-stat">
+        <span class="bottom-stat-label">Ad Spend</span>
+        <span class="bottom-stat-val">${spend?$$(spend):"—"}</span>
+        <span class="bottom-stat-label">CPA</span>
+        <span class="bottom-stat-val">${cpa?$$(cpa):"—"}</span>
+      </div>
+    </div>`;
   }).join("");
-  wrap.innerHTML = `<table>
-    <thead><tr>
-      <th>Page</th><th class="num">Sessions</th><th class="num">Active Users</th>
-      <th class="num">New Users</th><th class="num">Eng. Rate</th>
-      <th class="num">Avg Time</th><th class="num">Bounce Rate</th>
-      <th class="num">Conversions</th><th class="num">Revenue</th>
-    </tr></thead>
-    <tbody>${rowsHtml}</tbody>
-    <tfoot><tr style="font-weight:700;border-top:1px solid #334155">
-      <td>TOTAL</td>
-      <td class="num">${totalSess.toLocaleString()}</td>
-      <td class="num muted">—</td><td class="num muted">—</td>
-      <td class="num muted">—</td><td class="num muted">—</td><td class="num muted">—</td>
-      <td class="num">${totalConv.toLocaleString()}</td>
-      <td class="num good">${fmtBig$(totalRev)}</td>
-    </tr></tfoot>
-  </table>`;
 }
 
-function renderMetaTable(twRows, twNames) {
-  const wrap = document.getElementById("meta-wrap");
-  if (!twRows.length) {
-    wrap.innerHTML = "<p class='empty'>No Meta data configured for this campaign yet.</p>";
-    return;
+function renderGA4(concept){
+  const w=document.getElementById("ga4-inner");
+  const cols=PP_URLS.map((uid,i)=>({uid,concept:PP_CONCEPT[i],ci:i+1}))
+                    .filter(col=>concept==="ALL"||col.concept===concept);
+  if(!cols.length||!PP.length){
+    w.innerHTML=`<div class="loading">No data for this concept.</div>`;return;
   }
-  let totalSpend = 0, totalNCP = 0;
-  const rowsHtml = twNames.map(name => {
-    const rows = twRows.filter(r => r[1] === name);
-    if (!rows.length) return "";
-    const spend = rows.reduce((s,r) => s+parseNum(r[2]),0);
-    const cpm   = rows.reduce((s,r) => s+parseNum(r[3]),0) / rows.length;
-    const cpa   = rows.reduce((s,r) => s+parseNum(r[6]),0) / rows.length;
-    const roas  = rows.reduce((s,r) => s+parseNum(r[7]),0) / rows.length;
-    const ncp   = rows.reduce((s,r) => s+parseNum(r[8]),0);
-    totalSpend += spend; totalNCP += ncp;
-    const roasClass = roas >= 1.5 ? "good" : roas >= 1.0 ? "warn" : "";
-    return `<tr>
-      <td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${COLORS[name]||'#94A3B8'};margin-right:6px"></span>${name}</td>
-      <td class="num">${fmtBig$(spend)}</td>
-      <td class="num">${fmt$(cpm)}</td>
-      <td class="num">${fmt$(cpa)}</td>
-      <td class="num ${roasClass}">${roas.toFixed(3)}</td>
-      <td class="num good">${ncp.toLocaleString()}</td>
-    </tr>`;
+  const rS=ppRow("Sessions"),rN=ppRow("New Users"),rE=ppRow("Engagement Rate"),rB=ppRow("Bounce Rate");
+  let ts=0,tn=0;
+  const body=cols.map(col=>{
+    const s=N(rS?.[col.ci]||0),nu=N(rN?.[col.ci]||0),er=rE?.[col.ci]||"—",br=rB?.[col.ci]||"—";
+    ts+=s;tn+=nu;
+    return`<tr><td><strong>${col.uid}</strong></td><td class="r">${nn(s)}</td><td class="r">${nn(nu)}</td><td class="r">${er}</td><td class="r">${br}</td></tr>`;
   }).join("");
-  wrap.innerHTML = `<table>
-    <thead><tr>
-      <th>Campaign</th><th class="num">Spend</th><th class="num">Avg CPM</th>
-      <th class="num">Avg CPA</th><th class="num">Avg ROAS</th><th class="num">New Customers</th>
-    </tr></thead>
-    <tbody>${rowsHtml}</tbody>
-    <tfoot><tr style="font-weight:700;border-top:1px solid #334155">
-      <td>TOTAL</td>
-      <td class="num">${fmtBig$(totalSpend)}</td>
-      <td class="num muted">—</td><td class="num muted">—</td><td class="num muted">—</td>
-      <td class="num good">${totalNCP.toLocaleString()}</td>
-    </tr></tfoot>
-  </table>`;
+  w.innerHTML=`<table><thead><tr><th>Page</th><th class="r">Sessions</th><th class="r">New Users</th><th class="r">Eng Rate</th><th class="r">Bounce Rate</th></tr></thead><tbody>${body}</tbody><tfoot><tr><td>Total</td><td class="r">${nn(ts)}</td><td class="r">${nn(tn)}</td><td class="r dim">—</td><td class="r dim">—</td></tr></tfoot></table>`;
 }
 
-function renderJustuno() {
-  const wrap = document.getElementById("justuno-wrap");
-  if (!juData.rows.length) {
-    wrap.innerHTML = "<p class='empty'>No Justuno data yet.</p>";
-    return;
-  }
-  const r = juData.rows[0];
-  const email = parseNum(r[4]), sms = parseNum(r[5]);
-  const total = email + sms;
-  wrap.innerHTML = `<table>
-    <thead><tr><th>Metric</th><th class="num">Value</th></tr></thead>
-    <tbody>
-      <tr><td>Date Range</td><td class="num">${r[0]}</td></tr>
-      <tr><td>Promotion</td><td>${r[1]}</td></tr>
-      <tr><td>Total Impressions</td><td class="num">${parseNum(r[3]).toLocaleString()}</td></tr>
-      <tr><td>Email Opt-Ins</td><td class="num good">${email.toLocaleString()}</td></tr>
-      <tr><td>SMS Opt-Ins</td><td class="num good">${sms.toLocaleString()}</td></tr>
-      <tr><td>Total Opt-Ins</td><td class="num good">${total.toLocaleString()}</td></tr>
-      <tr><td>Opt-In Rate</td><td class="num">${r[6]}</td></tr>
-      <tr><td>Influenced Revenue</td><td class="num good">${fmtBig$(r[7])}</td></tr>
-    </tbody>
-  </table>`;
+function renderJustuno(rows){
+  const w=document.getElementById("ju-inner");
+  if(!rows.length){w.innerHTML=`<div class="loading">No data for this concept.</div>`;return;}
+  let ti=0,te=0,ts2=0,tr=0;
+  const body=rows.map(r=>{
+    const im=N(r[5]),em=N(r[6]),sm=N(r[7]),rv=N(r[9]);
+    ti+=im;te+=em;ts2+=sm;tr+=rv;
+    const rate=im?((em+sm)/im*100).toFixed(1)+"%":"—";
+    return`<tr><td><strong>${r[3]||r[2]}</strong></td><td class="r">${im?nn(im):`<span class="dim">—</span>`}</td><td class="r g">${em?nn(em):`<span class="dim">—</span>`}</td><td class="r g">${sm?nn(sm):`<span class="dim">—</span>`}</td><td class="r">${rate}</td><td class="r">${rv?`<span class="g">${$$(rv,2)}</span>`:`<span class="dim">$0</span>`}</td></tr>`;
+  }).join("");
+  const tr2=ti?((te+ts2)/ti*100).toFixed(1)+"%":"—";
+  w.innerHTML=`<table><thead><tr><th>URL</th><th class="r">Impressions</th><th class="r">Email</th><th class="r">SMS</th><th class="r">Opt-In Rate</th><th class="r">Infl. Revenue</th></tr></thead><tbody>${body}</tbody><tfoot><tr><td>Total</td><td class="r">${nn(ti)}</td><td class="r g">${nn(te)}</td><td class="r g">${nn(ts2)}</td><td class="r">${tr2}</td><td class="r g">${$$(tr,2)}</td></tr></tfoot></table>`;
 }
 
-// ─── INIT ─────────────────────────────────────────────────────────────────────
-async function init() {
+async function init(){
   buildTabs();
-  const [tw, ga4, ju] = await Promise.all([
-    fetchSheet("Meta_TripleWhale"),
-    fetchSheet("GA4_Pages"),
-    fetchSheet("Justuno"),
+  const [tw,pco,pp,ju,db]=await Promise.all([
+    fetchTab("Master_TripleWhale",    "A5:J1000"),
+    fetchTab("Page_Comparison_Orders","A3:E12"),
+    fetchTab("Page_Performance",      "A3:G11"),
+    fetchTab("Master_Justuno",        "A3:J1000"),
+    fetchDashboard(),
   ]);
-  twData  = tw;
-  ga4Data = ga4;
-  juData  = ju;
-
-  const now = new Date();
-  document.getElementById("updated").textContent =
-    now.toLocaleDateString("en-US", { month:"short", day:"numeric", year:"numeric" }) +
-    " " + now.toLocaleTimeString("en-US", { hour:"2-digit", minute:"2-digit" });
-
+  TW=tw;PCO=pco;PP=pp;JU=ju;DB=db;
+  const now=new Date();
+  document.getElementById("ts").textContent=
+    now.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})+
+    " · "+now.toLocaleTimeString("en-US",{hour:"2-digit",minute:"2-digit"});
   render();
 }
-
 init();
 </script>
 </body>
