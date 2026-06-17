@@ -208,7 +208,7 @@ const CONCEPTS = [
 
 const PP_URLS    = ["PA-AV1","PA-AV2","PO-AV1","PO-AV2","AD-A","AD-AV2"];
 const PP_CONCEPT = ["PA",    "PA",    "PO",    "PO",    "AD",  "AD"   ];
-const CC = {PA:1,PO:2,AD:3};
+const CC = {PA:1,PO:2,AD:3,LIS:4};
 
 let TW=[],PCO=[],PP=[],JU=[],DB={};
 let active="ALL";
@@ -288,7 +288,7 @@ function render(){
   const twF=c==="ALL"?allTW:allTW.filter(r=>r[9]===c);
 
   const spend = twF.reduce((s,r)=>s+N(r[2]),0);
-  const rev   = c==="ALL" ? N(DB["Total TOF Revenue (Shopify)"]||0)||pcoGet("Net Revenue",c) : pcoGet("Net Revenue",c);
+  const rev   = pcoGet("Net Revenue",c);
   const newC  = pcoGet("New Customers",c);
   const juF   = c==="ALL"?JU.filter(r=>r[2]):JU.filter(r=>r[2]&&r[4]===c);
   const juImpr   = juF.reduce((s,r)=>s+N(r[5]),0);
@@ -302,8 +302,11 @@ function render(){
   s("k-roas",   roas  ? xx(roas)  : "—");
   s("k-cpa",    cpa   ? $$(cpa)   : "—");
   s("k-newc",   newC  ? nn(newC)  : "—");
-  s("k-orders", DB["Total TOF Orders"]||"—");
-  s("k-sub",    DB["Subscription % of Mix"]||"—");
+  const totOrders = pcoGet("Total Orders",c);
+  const subOrders = pcoGet("Subscription Orders",c);
+  const subPct    = totOrders>0 ? (subOrders/totOrders*100).toFixed(1)+"%" : "—";
+  s("k-orders", totOrders ? nn(totOrders) : "—");
+  s("k-sub",    subPct);
   s("k-optin",  optInRate);
 
   s("tw-roas", wavg(twF,7,2) ? xx(wavg(twF,7,2)) : "—");
@@ -399,7 +402,7 @@ async function init(){
   buildTabs();
   const [tw,pco,pp,ju,db]=await Promise.all([
     fetchTab("Master_TripleWhale",    "A5:J1000"),
-    fetchTab("Page_Comparison_Orders","A3:E12"),
+    fetchTab("Page_Comparison_Orders","A3:F12"),
     fetchTab("Page_Performance",      "A3:G11"),
     fetchTab("Master_Justuno",        "A3:J1000"),
     fetchDashboard(),
