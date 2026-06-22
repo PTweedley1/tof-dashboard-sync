@@ -1,11 +1,12 @@
 """
-Pull all TOF campaign orders from Shopify API and write to Master_Orders tab.
+Pull TOF campaign orders from Shopify API and write to Master_Orders tab.
 
-Replaces the manual CSV export workflow (April_26 CSV, Beauty_Listicles CSV,
-Recharge CSV, TOF emails CSV) entirely.
+By default runs in INCREMENTAL mode: reads the last date already in the sheet
+and only fetches new orders from that date forward, then appends them.
 
 Usage:
-    python3 -m sync.shopify_orders
+    python3 -m sync.shopify_orders           # incremental (default)
+    python3 -m sync.shopify_orders --full    # full rebuild from campaign start
 """
 
 import os
@@ -39,10 +40,29 @@ FIELDS = ",".join([
 ])
 
 
-def fetch_tof_orders():
+def get_last_sheet_date(svc):
+    """Return the latest Order Date already in the sheet, or CAMPAIGN_START if empty."""
+    result = svc.spreadsheets().values().get(
+        spreadsheetId=DESTINATION_SHEET_ID,
+        range="'Master_Orders'!B:B",
+    ).execute()
+    dates = [r[0] for r in result.get("values", [])[1:] if r and r[0] >= CAMPAIGN_START]
+    return max(dates) if dates else CAMPAIGN_START
+
+
+def get_existing_order_names(svc):
+    """Return set of order names already in the sheet."""
+    result = svc.spreadsheets().values().get(
+        spreadsheetId=DESTINATION_SHEET_ID,
+        range="'Master_Orders'!A:A",
+    ).execute()
+    return {r[0] for r in result.get("values", [])[1:] if r}
+
+
+def fetch_tof_orders(since_date):
     url = (
         f"https://{SHOPIFY_SHOP}/admin/api/2024-01/orders.json"
-        f"?status=any&limit=250&created_at_min={CAMPAIGN_START}&fields={FIELDS}"
+        f"?status=any&limit=250&created_at_min={since_date}&fields={FIELDS}"
     )
 
     matched = []
@@ -135,43 +155,60 @@ def build_row(order):
     ]
 
 
-def sync():
-    print("Fetching TOF orders from Shopify API...")
-    orders = fetch_tof_orders()
-
-    rows = [build_row(o) for o in orders]
-    rows.sort(key=lambda r: (r[1], r[0]))  # sort by date, order name
-
+def sync(full=False):
+    import sys
     from collections import Counter
-    concepts  = Counter(r[2] for r in rows)
-    channels  = Counter(r[7] for r in rows)
-    ctypes    = Counter(r[5] for r in rows)
-    total_net = sum(r[11] for r in rows)
-    print(f"  Concepts:  {dict(concepts)}")
-    print(f"  Channel:   {dict(channels)}")
-    print(f"  Cust type: {dict(ctypes)}")
-    print(f"  Net Sales: ${total_net:,.2f}")
-
-    header = [
-        "Order Name", "Order Date", "Page Concept", "Customer Email", "Order Tag",
-        "Customer Type", "Codes Applied", "Channel", "Units", "Gross ($)", "Discount ($)", "Net Sales ($)",
-    ]
 
     svc = get_sheets_service()
-    svc.spreadsheets().values().clear(
-        spreadsheetId=DESTINATION_SHEET_ID,
-        range="'Master_Orders'!A:L",
-    ).execute()
 
-    svc.spreadsheets().values().update(
-        spreadsheetId=DESTINATION_SHEET_ID,
-        range="'Master_Orders'!A1",
-        valueInputOption="USER_ENTERED",
-        body={"values": [header] + rows},
-    ).execute()
+    if full:
+        since_date = CAMPAIGN_START
+        print(f"Full rebuild from {CAMPAIGN_START}...")
+    else:
+        since_date = get_last_sheet_date(svc)
+        print(f"Incremental update — fetching orders from {since_date} onwards...")
 
-    print(f"  Master_Orders updated — {len(rows)} rows written.")
+    orders = fetch_tof_orders(since_date)
+    new_rows = [build_row(o) for o in orders]
+    new_rows.sort(key=lambda r: (r[1], r[0]))
+
+    if full:
+        header = [
+            "Order Name", "Order Date", "Page Concept", "Customer Email", "Order Tag",
+            "Customer Type", "Codes Applied", "Channel", "Units", "Gross ($)", "Discount ($)", "Net Sales ($)",
+        ]
+        svc.spreadsheets().values().clear(
+            spreadsheetId=DESTINATION_SHEET_ID,
+            range="'Master_Orders'!A:L",
+        ).execute()
+        svc.spreadsheets().values().update(
+            spreadsheetId=DESTINATION_SHEET_ID,
+            range="'Master_Orders'!A1",
+            valueInputOption="USER_ENTERED",
+            body={"values": [header] + new_rows},
+        ).execute()
+        added = len(new_rows)
+    else:
+        # Filter out orders already in the sheet
+        existing = get_existing_order_names(svc)
+        to_add = [r for r in new_rows if r[0] not in existing]
+        added = len(to_add)
+
+        if to_add:
+            svc.spreadsheets().values().append(
+                spreadsheetId=DESTINATION_SHEET_ID,
+                range="'Master_Orders'!A:L",
+                valueInputOption="USER_ENTERED",
+                insertDataOption="INSERT_ROWS",
+                body={"values": to_add},
+            ).execute()
+
+    concepts = Counter(r[2] for r in new_rows)
+    print(f"  Concepts found: {dict(concepts)}")
+    print(f"  New rows added: {added}")
+    print(f"  Master_Orders updated.")
 
 
 if __name__ == "__main__":
-    sync()
+    import sys
+    sync(full="--full" in sys.argv)
